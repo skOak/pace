@@ -18,6 +18,7 @@ export class PaceDB extends Dexie {
   tasks!: EntityTable<Task, 'id'>;
   execution_logs!: EntityTable<ExecutionLog, 'id'>;
   daily_anchors!: EntityTable<DailyAnchor, 'date'>;
+  settings!: EntityTable<{ key: string; value: any }, 'key'>;
 
   constructor() {
     super('PaceDB');
@@ -29,6 +30,10 @@ export class PaceDB extends Dexie {
       execution_logs: '++id, taskId, startTime',
       // daily_anchors: 以日期字符串为主键（非自增）
       daily_anchors: 'date',
+    });
+
+    this.version(2).stores({
+      settings: 'key',
     });
   }
 }

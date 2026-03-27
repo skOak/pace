@@ -1,14 +1,49 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { DataService } from '@/services/data-service';
+import { SettingsService } from '@/services/settings-service';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, Upload, AlertTriangle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Download, Upload, AlertTriangle, KeyRound, CheckCircle2 } from 'lucide-react';
 
 export default function SettingsPage() {
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // OCR 设置状态
+  const [ocrSecretId, setOcrSecretId] = useState('');
+  const [ocrSecretKey, setOcrSecretKey] = useState('');
+  const [savingOcr, setSavingOcr] = useState(false);
+  const [saveOcrSuccess, setSaveOcrSuccess] = useState(false);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      const sid = await SettingsService.getSecure('ocr_secret_id');
+      const skey = await SettingsService.getSecure('ocr_secret_key');
+      if (sid) setOcrSecretId(sid);
+      if (skey) setOcrSecretKey(skey);
+    };
+    loadSettings();
+  }, []);
+
+  const handleSaveOcrSettings = async () => {
+    setSavingOcr(true);
+    setSaveOcrSuccess(false);
+    try {
+      await SettingsService.setSecure('ocr_secret_id', ocrSecretId);
+      await SettingsService.setSecure('ocr_secret_key', ocrSecretKey);
+      setSaveOcrSuccess(true);
+      setTimeout(() => setSaveOcrSuccess(false), 3000);
+    } catch (e) {
+      console.error('保存 OCR 设置报错', e);
+      alert('保存失败，请验证环境或重试');
+    } finally {
+      setSavingOcr(false);
+    }
+  };
 
   const handleExport = async () => {
     try {
@@ -123,6 +158,52 @@ export default function SettingsPage() {
               <p>导入备份文件将会<b>永久覆盖</b>当前浏览器中的所有 Pace 数据，请谨慎操作。</p>
             </div>
           </CardContent>
+        </Card>
+
+        <Card className="border-gray-100 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <KeyRound className="w-5 h-5 text-blue-500" />
+              腾讯云 OCR 视觉识别配置
+            </CardTitle>
+            <CardDescription>
+              配置您的腾讯云 API 密钥以启用拍照录入功能。这些凭据将通过 AES-GCM 加密，并仅持久化在您本机的浏览器中，绝不会被上传。
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="secretId">SecretId</Label>
+              <Input
+                id="secretId"
+                type="password"
+                placeholder="请输入腾讯云 API 的 SecretId"
+                value={ocrSecretId}
+                onChange={(e) => setOcrSecretId(e.target.value)}
+                className="font-mono text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="secretKey">SecretKey</Label>
+              <Input
+                id="secretKey"
+                type="password"
+                placeholder="请输入腾讯云 API 的 SecretKey"
+                value={ocrSecretKey}
+                onChange={(e) => setOcrSecretKey(e.target.value)}
+                className="font-mono text-sm"
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="bg-gray-50/50 border-t border-gray-100 mt-2 px-6 py-4">
+            <Button onClick={handleSaveOcrSettings} disabled={savingOcr} className="bg-blue-600 hover:bg-blue-700">
+              {savingOcr ? '保存中...' : '保存 OCR 配置'}
+            </Button>
+            {saveOcrSuccess && (
+              <span className="ml-4 text-sm text-emerald-600 flex items-center animate-in fade-in">
+                <CheckCircle2 className="w-4 h-4 mr-1" />已安全加密并保存
+              </span>
+            )}
+          </CardFooter>
         </Card>
       </div>
     </div>
