@@ -13,7 +13,8 @@ export default function SettingsPage() {
   const handleExport = async () => {
     try {
       const json = await DataService.exportData();
-      const defaultName = `pace_backup_${new Date().toISOString().slice(0, 10)}.json`;
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '_');
+      const defaultName = `pace_backup_${dateStr}.json`;
 
       // 优先尝试使用强大的 File System Access API
       // 这会直接弹出原生保存对话框，用户亲眼确认文件名，完美解决乱码/哈希名问题。

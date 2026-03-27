@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ExecutionLogService } from '@/services/execution-log-service';
+import { formatDuration } from '@/lib/forecast-utils';
 
 /**
  * 动态计时器组件
@@ -39,5 +40,5 @@ export function LiveTimer({ taskId, baseActTime }: { taskId: number; baseActTime
     displayTime += Math.floor((now - activeStartTime) / 60000);
   }
 
-  return <span>{displayTime}</span>;
+  return <span>{formatDuration(displayTime)}</span>;
 }

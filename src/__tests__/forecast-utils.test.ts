@@ -48,8 +48,8 @@ describe('forecast-utils', () => {
       const currentTime = new Date('2026-03-27T10:00:00.000Z');
       const forecast = calculateForecastTime(tasks, currentTime);
       
-      // 总计还需要 65 分钟
-      const expectedTime = new Date('2026-03-27T11:05:00.000Z');
+      // 总计还需要 65 分钟本身时长 + 5分钟/未完成任务的缓冲 = 75分钟
+      const expectedTime = new Date('2026-03-27T11:15:00.000Z');
       expect(forecast.getTime()).toBe(expectedTime.getTime());
     });
   });
@@ -62,8 +62,9 @@ describe('forecast-utils', () => {
     });
 
     it('处理除以 0 的情况', () => {
-      expect(calculateDeviationRatio({ ...baseTask, est_time: 0, act_time: 15 })).toBe(Number.POSITIVE_INFINITY);
-      expect(calculateDeviationRatio({ ...baseTask, est_time: 0, act_time: 0 })).toBe(0);
+      // 在新的逻辑中，如果没设置预估时长或是“校内完成”，则返回 -1 以作标记
+      expect(calculateDeviationRatio({ ...baseTask, est_time: 0, act_time: 15 })).toBe(-1);
+      expect(calculateDeviationRatio({ ...baseTask, est_time: 0, act_time: 0 })).toBe(-1);
     });
   });
 

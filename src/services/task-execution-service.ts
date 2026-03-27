@@ -90,7 +90,35 @@ export class TaskExecutionService {
     const today = new Date().toISOString().slice(0, 10);
     await DailyAnchorService.setEndAnchor(today);
     
-    // 如果任务是从 PENDING 直接 COMPLETED 或从 PAUSED -> COMPLETED 都可以
     await TaskService.updateStatus(taskId, TaskStatus.COMPLETED);
+  }
+
+  /**
+   * 过期今日未完成的任务（用于 22:00 强制打烊）
+   */
+  static async expireTodayUnfinishedTasks(): Promise<number> {
+    const today = new Date().toISOString().slice(0, 10);
+    const states = [TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.PAUSED];
+    let count = 0;
+    
+    for (const status of states) {
+      const tasks = await TaskService.getByStatus(status);
+      const todayTasks = tasks.filter(t => t.date === today);
+      
+      for (const t of todayTasks) {
+        if (t.id) {
+          if (t.status === TaskStatus.RUNNING) {
+             await this.pauseTask(t.id);
+          }
+          await TaskService.updateStatus(t.id, TaskStatus.EXPIRED);
+          count++;
+        }
+      }
+    }
+    
+    if (count > 0) {
+       await DailyAnchorService.setEndAnchor(today);
+    }
+    return count;
   }
 }

@@ -26,8 +26,10 @@ export function calculateRemainingTime(task: Task): number {
  * @returns 预计完工时间的 Date 对象
  */
 export function calculateForecastTime(tasks: Task[], currentTime: Date = new Date()): Date {
+  const pendingCount = tasks.filter(t => t.status === TaskStatus.PENDING || t.status === TaskStatus.PAUSED).length;
+  const bufferTimeMin = pendingCount * 5;
   const totalRemainingMin = tasks.reduce((sum, task) => sum + calculateRemainingTime(task), 0);
-  return new Date(currentTime.getTime() + totalRemainingMin * 60 * 1000);
+  return new Date(currentTime.getTime() + (totalRemainingMin + bufferTimeMin) * 60 * 1000);
 }
 
 /**
@@ -67,4 +69,17 @@ export function formatTime(date: Date | null | undefined, now: Date = new Date()
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const d = date.getDate().toString().padStart(2, '0');
   return `${month}-${d} ${timeStr}`;
+}
+
+/**
+ * 格式化分钟数为 x h y m
+ * @param minutes 分钟数
+ * @returns 格式化后的字符串
+ */
+export function formatDuration(minutes: number): string {
+  if (isNaN(minutes) || minutes < 0) return '0m';
+  if (minutes < 60) return `${Math.round(minutes)}m`;
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }

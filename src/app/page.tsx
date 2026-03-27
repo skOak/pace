@@ -5,7 +5,7 @@ import { TaskService } from '@/services/task-service';
 import { TaskExecutionService } from '@/services/task-execution-service';
 import { ExecutionLogService } from '@/services/execution-log-service';
 import { DailyAnchorService } from '@/services/daily-anchor-service';
-import { calculateForecastTime, calculateDeviationRatio, formatTime } from '@/lib/forecast-utils';
+import { calculateForecastTime, calculateDeviationRatio, formatTime, formatDuration } from '@/lib/forecast-utils';
 import { TaskStatus, type Task } from '@/lib/types';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
 import { LiveTimer } from '@/components/LiveTimer';
@@ -22,17 +22,21 @@ export default function TodayPage() {
   const [totalActTime, setTotalActTime] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeRunningStartTime, setActiveRunningStartTime] = useState<number | null>(null);
+  const [startAnchorDate, setStartAnchorDate] = useState<Date | null>(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [transitionTaskName, setTransitionTaskName] = useState('');
 
-  // 每分钟更新一次当前时间以刷新预测和时长
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
-    return () => clearInterval(timer);
-  }, []);
+
 
   const loadTasks = useCallback(async () => {
     try {
       // 1. 先执行自动过期检查，清理非今天的未完成任务
       await TaskService.expireOverdueTasks();
+
+      // 1.5 如果时间超过 22:00 晚安期限，强制过期今天的未完成任务
+      if (new Date().getHours() >= 22) {
+        await TaskExecutionService.expireTodayUnfinishedTasks();
+      }
 
       // 2. 获取今天的任务
       const today = new Date().toISOString().slice(0, 10);
@@ -42,8 +46,9 @@ export default function TodayPage() {
       // 3. 获取锚点和总用时基础值
       const anchor = await DailyAnchorService.get(today);
       setStartAnchor(anchor?.start_anchor ? formatTime(new Date(anchor.start_anchor)) : null);
+      setStartAnchorDate(anchor?.start_anchor ? new Date(anchor.start_anchor) : null);
       setEndAnchor(anchor?.end_anchor ? formatTime(new Date(anchor.end_anchor)) : null);
-      setTotalActTime(allTasks.reduce((sum, t) => sum + t.act_time, 0));
+      setTotalActTime(allTasks.reduce((sum, t) => t.is_school_done ? sum : sum + t.act_time, 0));
 
       // 4. 获取运行中任务的活跃记录时间点，以提供动态时长加成
       const runningTask = allTasks.find(t => t.status === TaskStatus.RUNNING);
@@ -65,27 +70,55 @@ export default function TodayPage() {
     }
   }, []);
 
+  // 每分钟更新一次当前时间以刷新预测和时长
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date();
+      setCurrentTime(now);
+      if (now.getHours() >= 22) {
+        loadTasks();
+      }
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [loadTasks]);
+
   const [taskToSwitch, setTaskToSwitch] = useState<Task | null>(null);
   const [runningTaskForSwitch, setRunningTaskForSwitch] = useState<Task | null>(null);
 
   const handleStartTask = async (task: Task) => {
+    if (new Date().getHours() >= 22) {
+      alert("已经很晚啦，该休息了！明早再战吧！");
+      await loadTasks();
+      return;
+    }
+
     const running = tasks.find(t => t.status === TaskStatus.RUNNING);
     if (running && running.id !== task.id) {
       setRunningTaskForSwitch(running);
       setTaskToSwitch(task);
     } else {
-      await TaskExecutionService.startTask(task.id!);
-      loadTasks();
+      triggerTransition(task, () => TaskExecutionService.startTask(task.id!));
     }
   };
 
   const confirmSwitch = async () => {
     if (taskToSwitch && runningTaskForSwitch) {
-      await TaskExecutionService.startTask(taskToSwitch.id!, runningTaskForSwitch.id!);
-      setTaskToSwitch(null);
-      setRunningTaskForSwitch(null);
-      loadTasks();
+      triggerTransition(taskToSwitch, () => TaskExecutionService.startTask(taskToSwitch.id!, runningTaskForSwitch.id!));
     }
+  };
+
+  const triggerTransition = (task: Task, action: () => Promise<void>) => {
+    setTaskToSwitch(null);
+    setRunningTaskForSwitch(null);
+    setTransitionTaskName(task.title);
+    setIsTransitioning(true);
+    
+    setTimeout(async () => {
+      await action();
+      await loadTasks();
+      // 在完成获取数据和执行请求后再稍等片刻让淡出平滑
+      setTimeout(() => setIsTransitioning(false), 500);
+    }, 800);
   };
 
   const handlePauseTask = async (task: Task) => {
@@ -125,6 +158,9 @@ export default function TodayPage() {
 
   const isAllCompleted = tasks.length > 0 && pendingTasks.length === 0 && runningTasks.length === 0;
   const displayEndAnchor = isAllCompleted ? endAnchor : null;
+
+  const isSparkEligible = startAnchorDate && startAnchorDate.getHours() >= 17 && startAnchorDate.getHours() < 18;
+  const sparkTaskId = isSparkEligible ? (runningTasks.length > 0 ? runningTasks[0].id : (pendingTasks.length > 0 ? pendingTasks[0].id : null)) : null;
 
   return (
     <>
@@ -170,7 +206,7 @@ export default function TodayPage() {
               <Flame className="w-3.5 h-3.5" />
               <span className="text-xs font-semibold">今日总用时</span>
             </div>
-            <div className="text-lg font-bold text-emerald-950">{displayTotalTime} <span className="text-sm font-medium text-emerald-700">m</span></div>
+            <div className="text-lg font-bold text-emerald-950">{formatDuration(displayTotalTime)}</div>
           </div>
         </div>
       </div>
@@ -181,11 +217,16 @@ export default function TodayPage() {
           <h2 className="text-sm font-semibold text-blue-600 uppercase tracking-wider flex items-center gap-2">
             <PlayCircle className="w-4 h-4" /> 专注中
           </h2>
-          {runningTasks.map((task) => (
-            <Card key={task.id} className="border-blue-100 shadow-md shadow-blue-500/5 bg-gradient-to-r from-blue-50 to-white">
+          {runningTasks.map((task) => {
+            const isSparkTask = task.id === sparkTaskId;
+            return (
+            <Card key={task.id} className={`border-blue-100 shadow-md ${isSparkTask ? 'shadow-yellow-200/50 border-yellow-400 bg-gradient-to-r from-yellow-50 to-white' : 'shadow-blue-500/5 bg-gradient-to-r from-blue-50 to-white'}`}>
               <CardContent className="p-5 flex items-center justify-between">
                 <div>
-                  <h3 className="font-semibold text-blue-900 text-lg">{task.title}</h3>
+                  <h3 className="font-semibold text-blue-900 text-lg flex items-center gap-2">
+                    {task.title}
+                    {isSparkTask && <span className="text-yellow-500 animate-pulse text-xl">⚡</span>}
+                  </h3>
                   <div className="flex gap-2 mt-2">
                     {task.tags.map(tag => (
                       <span key={tag} className="text-xs px-2 py-1 bg-blue-100/50 text-blue-700 rounded-md">
@@ -197,7 +238,7 @@ export default function TodayPage() {
                 <div className="flex flex-col items-end gap-3 text-right">
                   <div className="flex items-center gap-1.5 text-blue-600 font-medium">
                     <Clock className="w-4 h-4" />
-                    <span>已专注 <LiveTimer taskId={task.id!} baseActTime={task.act_time} />m / 预估 {task.est_time}m</span>
+                    <span>已专注 <LiveTimer taskId={task.id!} baseActTime={task.act_time} /> / 预估 {formatDuration(task.est_time)}</span>
                   </div>
                   <div className="flex gap-2">
                     <Button 
@@ -221,7 +262,8 @@ export default function TodayPage() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+          );
+        })}
         </div>
       )}
 
@@ -234,13 +276,22 @@ export default function TodayPage() {
           <div className="py-8 text-center bg-white rounded-2xl border border-dashed border-gray-200">
             <p className="text-gray-400">目前没有待办事项</p>
           </div>
+        ) : new Date().getHours() >= 22 ? (
+          <div className="py-8 text-center bg-white rounded-2xl border border-dashed border-red-200 bg-red-50/50">
+            <p className="text-red-500 font-medium">🕒 已经很晚啦，当前不能继续专注任务。该休息了，晚安！</p>
+          </div>
         ) : (
           <div className="grid gap-3">
-            {pendingTasks.map((task) => (
-              <Card key={task.id} className="group border-gray-100 shadow-sm hover:shadow-md transition-all">
+            {pendingTasks.map((task) => {
+              const isSparkTask = task.id === sparkTaskId;
+              return (
+              <Card key={task.id} className={`group shadow-sm hover:shadow-md transition-all ${isSparkTask ? 'border-yellow-400 bg-yellow-50/10' : 'border-gray-100'}`}>
                 <CardContent className="p-4 flex items-center justify-between">
                   <div>
-                    <h3 className="font-medium text-gray-800">{task.title}</h3>
+                    <h3 className="font-medium text-gray-800 flex items-center gap-2">
+                      {task.title}
+                      {isSparkTask && <span className="text-yellow-500 text-sm">⚡</span>}
+                    </h3>
                     {task.tags.length > 0 && (
                       <div className="flex gap-1.5 mt-1.5">
                         {task.tags.map(tag => (
@@ -253,8 +304,8 @@ export default function TodayPage() {
                   </div>
                   <div className="flex flex-col items-end gap-2 text-right">
                     <div className="flex items-center gap-1.5 text-sm text-gray-400 font-medium">
-                      {task.status === TaskStatus.PAUSED && <span>已用 {task.act_time}m / </span>}
-                      <span>预估 {task.est_time}m</span>
+                      {task.status === TaskStatus.PAUSED && <span>已用 {formatDuration(task.act_time)} / </span>}
+                      <span>预估 {formatDuration(task.est_time)}</span>
                     </div>
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button 
@@ -279,7 +330,8 @@ export default function TodayPage() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+            );
+          })}
           </div>
         )}
       </div>
@@ -298,8 +350,14 @@ export default function TodayPage() {
               const ratioPercent = isNA ? 0 : Math.round(ratio * 100);
               
               return (
-                <div key={task.id} className="p-3 bg-gray-50/50 rounded-xl flex items-center justify-between opacity-80">
-                  <div className="flex items-center gap-3">
+                <div key={task.id} className="relative p-3 bg-gray-50/50 rounded-xl flex items-center justify-between opacity-80 overflow-hidden shadow-sm">
+                  {!isNA && (
+                    <div 
+                      className={`absolute top-0 left-0 h-full opacity-10 ${isGood ? 'bg-green-500' : 'bg-red-500'}`} 
+                      style={{ width: `${Math.min(ratioPercent, 100)}%` }}
+                    />
+                  )}
+                  <div className="flex items-center gap-3 relative z-10">
                     <span className="text-gray-500 line-through">{task.title}</span>
                     {isNA ? (
                       <span className="text-[10px] px-1.5 py-0.5 rounded-sm font-bold bg-gray-200 text-gray-500">
@@ -311,8 +369,8 @@ export default function TodayPage() {
                       </span>
                     )}
                   </div>
-                  <span className="text-xs text-gray-400 font-medium">
-                    {isNA ? `${task.act_time}m` : `${task.act_time}m / ${task.est_time}m`}
+                  <span className="text-xs text-gray-400 font-medium relative z-10">
+                    {isNA ? formatDuration(task.act_time) : `${formatDuration(task.act_time)} / ${formatDuration(task.est_time)}`}
                   </span>
                 </div>
               );
@@ -342,6 +400,16 @@ export default function TodayPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* 沉浸动画转场遮罩 */}
+      {isTransitioning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/95 backdrop-blur-sm animate-in fade-in duration-500">
+          <div className="text-center animate-in zoom-in-95 duration-500 delay-150">
+            <h2 className="text-2xl font-light text-white opacity-90 tracking-widest mb-4">深呼吸</h2>
+            <p className="text-gray-300">准备进入 <span className="text-blue-400 font-medium px-1">{transitionTaskName}</span> 的时间</p>
+          </div>
+        </div>
+      )}
     </>
   );
 }
