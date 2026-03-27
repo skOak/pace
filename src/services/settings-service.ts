@@ -96,4 +96,19 @@ export class SettingsService {
     const record = await db.settings.get(key);
     return record ? record.value : null;
   }
+
+  /**
+   * 获取用户资料 (免加密快速读取)
+   */
+  static async getProfile(): Promise<{name: string, avatar: string} | null> {
+    const profile = await this.get('user_profile');
+    return profile || null;
+  }
+  
+  /**
+   * 设置用户资料 (免加密)
+   */
+  static async setProfile(name: string, avatar: string): Promise<void> {
+    await this.set('user_profile', { name, avatar });
+  }
 }

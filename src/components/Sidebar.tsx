@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { Home, Inbox, Settings, PieChart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TaskService } from '@/services/task-service';
+import { SettingsService } from '@/services/settings-service';
 import { TaskStatus } from '@/lib/types';
 
 const navItems = [
@@ -18,6 +19,22 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const [completedRatio, setCompletedRatio] = useState(0);
+  const [profileName, setProfileName] = useState('');
+  const [profileAvatar, setProfileAvatar] = useState('');
+
+  const fetchProfile = async () => {
+    const profile = await SettingsService.getProfile();
+    if (profile) {
+      setProfileName(profile.name || '');
+      setProfileAvatar(profile.avatar || '');
+    }
+  };
+
+  useEffect(() => {
+    fetchProfile();
+    window.addEventListener('pace_profile_updated', fetchProfile);
+    return () => window.removeEventListener('pace_profile_updated', fetchProfile);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -49,10 +66,15 @@ export function Sidebar() {
   }, []);
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-10 hidden w-64 md:w-72 flex-col border-r bg-background/80 backdrop-blur-xl md:flex">
-      <div className="flex h-16 items-center px-6 border-b">
-        <h1 className="text-xl font-bold bg-gradient-to-r from-blue-500 to-teal-400 bg-clip-text text-transparent">
-          Pace
+    <aside className="fixed inset-y-0 left-0 z-10 hidden w-64 md:w-72 flex-col border-r bg-background/80 backdrop-blur-xl md:flex shadow-sm">
+      <div className="flex h-16 items-center px-6 border-b gap-3">
+        {profileAvatar ? (
+          <img src={profileAvatar} alt="Avatar" className="w-8 h-8 rounded-full border border-gray-200 object-cover shrink-0" />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-teal-400 shrink-0" />
+        )}
+        <h1 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent line-clamp-1">
+          {profileName || 'Pace'}
         </h1>
       </div>
       <nav className="flex-1 space-y-2 p-4">

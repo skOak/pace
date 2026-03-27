@@ -5,6 +5,7 @@ import { TaskService } from '@/services/task-service';
 import { TaskExecutionService } from '@/services/task-execution-service';
 import { ExecutionLogService } from '@/services/execution-log-service';
 import { DailyAnchorService } from '@/services/daily-anchor-service';
+import { SettingsService } from '@/services/settings-service';
 import { calculateForecastTime, calculateDeviationRatio, formatTime, formatDuration } from '@/lib/forecast-utils';
 import { TaskStatus, type Task } from '@/lib/types';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
@@ -26,6 +27,17 @@ export default function TodayPage() {
   const [startAnchorDate, setStartAnchorDate] = useState<Date | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionTaskName, setTransitionTaskName] = useState('');
+  const [profileName, setProfileName] = useState('');
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const profile = await SettingsService.getProfile();
+      if (profile?.name) setProfileName(profile.name);
+    };
+    fetchProfile();
+    window.addEventListener('pace_profile_updated', fetchProfile);
+    return () => window.removeEventListener('pace_profile_updated', fetchProfile);
+  }, []);
 
 
 
@@ -443,7 +455,9 @@ export default function TodayPage() {
       {isTransitioning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/95 backdrop-blur-sm animate-in fade-in duration-500">
           <div className="text-center animate-in zoom-in-95 duration-500 delay-150">
-            <h2 className="text-2xl font-light text-white opacity-90 tracking-widest mb-4">深呼吸</h2>
+            <h2 className="text-2xl font-light text-white opacity-90 tracking-widest mb-4">
+              深呼吸{profileName ? `，${profileName}` : ''}
+            </h2>
             <p className="text-gray-300">准备进入 <span className="text-blue-400 font-medium px-1">{transitionTaskName}</span> 的时间</p>
           </div>
         </div>

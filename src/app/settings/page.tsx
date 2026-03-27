@@ -7,11 +7,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Download, Upload, AlertTriangle, KeyRound, CheckCircle2 } from 'lucide-react';
+import { Download, Upload, AlertTriangle, KeyRound, CheckCircle2, UserCircle, Image as ImageIcon } from 'lucide-react';
+import { AvatarCropper } from '@/components/AvatarCropper';
 
 export default function SettingsPage() {
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  // 个人资料状态
+  const [profileName, setProfileName] = useState('');
+  const [profileAvatar, setProfileAvatar] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [saveProfileSuccess, setSaveProfileSuccess] = useState(false);
+  
+  // Cropper 状态
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [cropperImageUrl, setCropperImageUrl] = useState('');
 
   // OCR 设置状态
   const [ocrSecretId, setOcrSecretId] = useState('');
@@ -25,9 +37,47 @@ export default function SettingsPage() {
       const skey = await SettingsService.getSecure('ocr_secret_key');
       if (sid) setOcrSecretId(sid);
       if (skey) setOcrSecretKey(skey);
+
+      const profile = await SettingsService.getProfile();
+      if (profile) {
+        setProfileName(profile.name || '');
+        setProfileAvatar(profile.avatar || '');
+      }
     };
     loadSettings();
   }, []);
+
+  const handleSaveProfile = async () => {
+    setSavingProfile(true);
+    setSaveProfileSuccess(false);
+    try {
+      await SettingsService.setProfile(profileName, profileAvatar);
+      // 派发自定义全局事件，使得 Sidebar 能够立刻监听到最新的资料并刷新
+      window.dispatchEvent(new Event('pace_profile_updated'));
+      setSaveProfileSuccess(true);
+      setTimeout(() => setSaveProfileSuccess(false), 3000);
+    } catch (e) {
+      console.error('保存资料报错', e);
+      alert('保存失败，请检查或重试');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const onAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const imageUrl = URL.createObjectURL(file);
+      setCropperImageUrl(imageUrl);
+      setCropperOpen(true);
+    }
+    e.target.value = '';
+  };
+  
+  const handleCropSave = (base64Image: string) => {
+    setProfileAvatar(base64Image);
+    setCropperOpen(false);
+  };
 
   const handleSaveOcrSettings = async () => {
     setSavingOcr(true);
@@ -119,6 +169,69 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-6">
+        {/* 个人资料卡片 */}
+        <Card className="border-gray-100 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <UserCircle className="w-5 h-5 text-indigo-500" />
+              名片与个性化
+            </CardTitle>
+            <CardDescription>
+              设置您在 Pace 中被称呼的名字，并上传一个圆形头像，增加应用互动沉浸感。
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex flex-col sm:flex-row gap-6 items-start">
+              {/* 头像区域 */}
+              <div className="flex flex-col items-center gap-3 w-full sm:w-auto">
+                <div 
+                  className="w-24 h-24 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden relative group cursor-pointer hover:border-indigo-400 transition-colors"
+                  onClick={() => avatarInputRef.current?.click()}
+                >
+                  {profileAvatar ? (
+                    <img src={profileAvatar} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <ImageIcon className="w-8 h-8 text-gray-400 group-hover:text-indigo-400 transition-colors" />
+                  )}
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                     <span className="text-white text-xs font-medium">更换</span>
+                  </div>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  ref={avatarInputRef}
+                  onChange={onAvatarFileChange}
+                />
+              </div>
+
+              {/* 昵称区域 */}
+              <div className="flex-1 space-y-2 w-full">
+                <Label htmlFor="profileName">怎么称呼您？</Label>
+                <Input
+                  id="profileName"
+                  placeholder="限制最多 10 个字符"
+                  maxLength={10}
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  className="max-w-md"
+                />
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="bg-gray-50/50 border-t border-gray-100 mt-2 px-6 py-4">
+            <Button onClick={handleSaveProfile} disabled={savingProfile} className="bg-indigo-600 hover:bg-indigo-700">
+              {savingProfile ? '保存中...' : '保存个性化资料'}
+            </Button>
+            {saveProfileSuccess && (
+              <span className="ml-4 text-sm text-emerald-600 flex items-center animate-in fade-in">
+                <CheckCircle2 className="w-4 h-4 mr-1" />资料已更新生效
+              </span>
+            )}
+          </CardFooter>
+        </Card>
+
         <Card className="border-gray-100 shadow-sm">
           <CardHeader>
             <CardTitle>数据备份与恢复</CardTitle>
@@ -206,6 +319,13 @@ export default function SettingsPage() {
           </CardFooter>
         </Card>
       </div>
+
+      <AvatarCropper 
+        open={cropperOpen} 
+        onOpenChange={setCropperOpen} 
+        imageUrl={cropperImageUrl} 
+        onCropSave={handleCropSave} 
+      />
     </div>
   );
 }
