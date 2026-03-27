@@ -171,4 +171,35 @@ describe('TaskService', () => {
       ).rejects.toThrow('非法状态转换');
     });
   });
+  describe('expireOverdueTasks', () => {
+    it('应将过去的未完成任务自动标记为 EXPIRED', async () => {
+      // 创建昨日任务（应被过期）
+      const id1 = await TaskService.create({ title: '昨日待办', date: '2026-03-25', status: TaskStatus.PENDING });
+      const id2 = await TaskService.create({ title: '昨日执行中', date: '2026-03-25', status: TaskStatus.RUNNING });
+      // 创建今日任务（不应被过期）
+      const today = new Date().toISOString().slice(0, 10);
+      const id3 = await TaskService.create({ title: '今日待办', date: today, status: TaskStatus.PENDING });
+      // 创建昨日已完成任务（不应被过期）
+      const id4 = await TaskService.create({ title: '昨日已完成', date: '2026-03-25', status: TaskStatus.COMPLETED });
+
+      await db.tasks.update(id1, { status: TaskStatus.PENDING });
+      await db.tasks.update(id2, { status: TaskStatus.RUNNING });
+      await db.tasks.update(id3, { status: TaskStatus.PENDING });
+      await db.tasks.update(id4, { status: TaskStatus.COMPLETED });
+
+      const expiredCount = await TaskService.expireOverdueTasks();
+      
+      expect(expiredCount).toBe(2);
+      
+      const t1 = await TaskService.getById(id1);
+      const t2 = await TaskService.getById(id2);
+      const t3 = await TaskService.getById(id3);
+      const t4 = await TaskService.getById(id4);
+      
+      expect(t1!.status).toBe(TaskStatus.EXPIRED);
+      expect(t2!.status).toBe(TaskStatus.EXPIRED);
+      expect(t3!.status).toBe(TaskStatus.PENDING); // 今日任务不受影响
+      expect(t4!.status).toBe(TaskStatus.COMPLETED); // 已完成任务不受影响
+    });
+  });
 });

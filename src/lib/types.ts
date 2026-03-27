@@ -60,6 +60,7 @@ export interface Task {
 export interface CreateTaskInput {
   title: string;
   est_time?: number;
+  act_time?: number;
   tags?: string[];
   is_school_done?: boolean;
   date?: string;

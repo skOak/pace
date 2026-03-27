@@ -1,36 +1,37 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pace ⏱️
 
-## Getting Started
+Pace 是一款**本地优先 (Local-First)** 的个人任务与节奏管理应用。基于「少即是多」的理念，Pace 将相对碎片和焦虑的事务管理缩减为最纯粹的**今日专注**与**时间流复盘**，并确保你的所有数据始终极度安全地保存在你的设备本地。
 
-First, run the development server:
+## ✨ 核心特性
+
+* **🏠 纯粹的「今天」看板**：每天的精力都是有限的，Pace 鼓励你只把今天确切要做的任务排入视线。动态的专注引擎会根据你正在运行的任务，实时推算你今天的「预计收尾时间」和「今日动态总用时」。
+* **📭 零压力的「收集箱」**：随时捕获脑海中一闪而过的待办记录，等有余力时，再将它们一键排入某一天的执行流中。
+* **⏱️ 独占式专注底层记录**：严密的防误触引擎——同一时间只会有一个任务处于运行状态（Running）。智能排他逻辑会确保你在跨任务弹跳和切换时自动处理上一个任务的结算与挂起，帮你找回节奏。
+* **📊 深度时间洞察 (Insights)**：直白呈现你的「预估时间」与「实际用时」偏差率，抛弃无用的焦虑，用科学直白的大数据复盘，逐步磨合出更了解自己的时间直觉。
+* **🔒 绝对的本地隐私**：采用 Dexie.js (IndexedDB) 构建底层存储，0 服务器依赖，所有任务数据与执行碎片均永久落盘、加密脱敏在你自己的浏览器里。支持配置页一键导出/导入 JSON 进行手动冷备份。
+
+## 🛠️ 技术栈
+
+* **前端框架**：Next.js (App Router)
+* **语言规范**：TypeScript
+* **UI 与审美系统**：Tailwind CSS + shadcn/ui + Lucide Icons
+* **本地化数据库**：Dexie.js (IndexedDB)
+* **测试与断言**：Vitest
+
+## 🚀 快速开始
 
 ```bash
+# 1. 安装依赖包
+npm install
+
+# 2. 启动本地开发服务器
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# 3. 访问你的本地看板启动人生节奏
+# 打开浏览器并访问 http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🤖 署名与致谢
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+本应用的 MVP 敏捷迭代开发阶段（Sprint 1 ~ Sprint 5）采用了前沿的协同模式构建：
+由开发者独立主导产品需求规划、UI 交互风格定义与技术选型；并在核心逻辑代码的结对编程（Pair Programming）与迭代验收阶段，由 **Antigravity (by Google DeepMind)** 作为 Agentic AI 辅助完成模块编写、UI 像素级还原及自动化代码测试的落地。

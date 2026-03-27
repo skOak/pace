@@ -25,7 +25,7 @@ export class TaskService {
     const task: Task = {
       title: input.title,
       est_time: input.est_time ?? 0,
-      act_time: 0,
+      act_time: input.act_time ?? 0,
       status: input.status ?? TaskStatus.DRAFT,
       tags: input.tags ?? [],
       is_school_done: input.is_school_done ?? false,
@@ -35,7 +35,7 @@ export class TaskService {
     };
 
     const id = await db.tasks.add(task);
-    return id;
+    return id as number;
   }
 
   /** 按 ID 查询单个任务 */
@@ -108,5 +108,32 @@ export class TaskService {
       status: newStatus,
       updated_at: new Date().toISOString(),
     });
+  }
+
+  /**
+   * 自动过期非当日的未完成任务
+   * 扫描所有非 COMPLETED 且非 EXPIRED 的旧任务，强制将其变更为 EXPIRED
+   */
+  static async expireOverdueTasks(): Promise<number> {
+    const today = new Date().toISOString().slice(0, 10);
+    const overdueTasks = await db.tasks
+      .where('status')
+      .anyOf([TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.PAUSED])
+      .filter((task) => task.date < today)
+      .toArray();
+
+    if (overdueTasks.length === 0) return 0;
+
+    const now = new Date().toISOString();
+    await Promise.all(
+      overdueTasks.map((task) =>
+        db.tasks.update(task.id!, {
+          status: TaskStatus.EXPIRED,
+          updated_at: now,
+        })
+      )
+    );
+
+    return overdueTasks.length;
   }
 }

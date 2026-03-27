@@ -19,7 +19,8 @@ export class ExecutionLogService {
       taskId,
       startTime: (now ?? new Date()).toISOString(),
     };
-    return db.execution_logs.add(log);
+    const id = await db.execution_logs.add(log);
+    return id as number;
   }
 
   /**
