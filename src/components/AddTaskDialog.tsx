@@ -5,6 +5,7 @@ import { Plus, Camera, Image as ImageIcon, PenLine, ListPlus } from 'lucide-reac
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { TaskStatus } from '@/lib/types';
 import { TaskService } from '@/services/task-service';
+import { StatsService } from '@/services/stats-service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,6 +33,7 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
   const [tags, setTags] = useState<string>('');
   const [frequentTags, setFrequentTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [smartBufferSuggestion, setSmartBufferSuggestion] = useState<string | null>(null);
   
   // 批量添加状态
   const [batchOpen, setBatchOpen] = useState(false);
@@ -55,6 +57,36 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
       });
     }
   }, [open]);
+
+  // 当标签发生变化时，防抖检查 Smart Buffer
+  useEffect(() => {
+    if (!open || !tags) {
+       setSmartBufferSuggestion(null);
+       return;
+    }
+    const currentTags = tags.split(',').map(t => t.trim()).filter(Boolean);
+    if (currentTags.length === 0) {
+       setSmartBufferSuggestion(null);
+       return;
+    }
+    
+    const checkBuffer = async () => {
+      for (const t of currentTags) {
+        const result = await StatsService.checkSmartBuffer(t);
+        if (result.active) {
+           setSmartBufferSuggestion(`💡 根据最近的记录，做 #${t} 通常比预估多花 ${result.extraMinutes} 分钟。要不要把这次的预估调长一点？`);
+           return;
+        }
+      }
+      setSmartBufferSuggestion(null);
+    };
+
+    const timer = setTimeout(() => {
+       checkBuffer();
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [tags, open]);
 
   const handleTagClick = (t: string) => {
     const currentTags = tags.split(',').map(s => s.trim()).filter(Boolean);
@@ -359,6 +391,11 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
                     #{tag}
                   </button>
                 ))}
+              </div>
+            )}
+            {smartBufferSuggestion && (
+              <div className="text-sm text-orange-700 bg-orange-50/80 border border-orange-100 p-2.5 rounded-lg mt-2 font-medium animate-in fade-in slide-in-from-top-1">
+                {smartBufferSuggestion}
               </div>
             )}
           </div>

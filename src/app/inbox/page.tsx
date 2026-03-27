@@ -7,10 +7,12 @@ import { AddTaskDialog } from '@/components/AddTaskDialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Inbox, Trash2, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 export default function InboxPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
   const loadTasks = useCallback(async () => {
     try {
@@ -28,9 +30,11 @@ export default function InboxPage() {
     loadTasks();
   }, [loadTasks]);
 
-  const handleDelete = async (id: number) => {
+  const handleDeleteConfirm = async () => {
+    if (!taskToDelete?.id) return;
     try {
-      await TaskService.delete(id);
+      await TaskService.delete(taskToDelete.id);
+      setTaskToDelete(null);
       await loadTasks();
     } catch (error) {
       console.error('删除任务失败:', error);
@@ -102,7 +106,7 @@ export default function InboxPage() {
                       variant="ghost"
                       size="icon"
                       className="text-gray-400 hover:text-red-500 h-8 w-8"
-                      onClick={() => task.id && handleDelete(task.id)}
+                      onClick={() => setTaskToDelete(task)}
                       title="删除草稿"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -129,6 +133,22 @@ export default function InboxPage() {
 
       {/* 添加草稿的 FAB 置于动画外层 */}
       <AddTaskDialog onTaskAdded={loadTasks} defaultStatus={TaskStatus.DRAFT} />
+
+      {/* 删除草稿确认对话框 */}
+      <Dialog open={!!taskToDelete} onOpenChange={(open) => !open && setTaskToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确定删除草稿？</DialogTitle>
+            <DialogDescription>
+              草稿 <strong>{taskToDelete?.title}</strong> 将被永久删除。此操作不可恢复。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setTaskToDelete(null)}>取消</Button>
+            <Button variant="destructive" className="bg-red-600 hover:bg-red-700 text-white" onClick={handleDeleteConfirm}>确认删除</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

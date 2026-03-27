@@ -12,7 +12,8 @@ import { LiveTimer } from '@/components/LiveTimer';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { CheckCircle2, PlayCircle, Clock, PauseCircle, Target, Flame } from 'lucide-react';
+import { CheckCircle2, PlayCircle, Clock, PauseCircle, Target, Flame, Trash2 } from 'lucide-react';
+import { WeeklyStrip } from '@/components/WeeklyStrip';
 
 export default function TodayPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -84,6 +85,7 @@ export default function TodayPage() {
 
   const [taskToSwitch, setTaskToSwitch] = useState<Task | null>(null);
   const [runningTaskForSwitch, setRunningTaskForSwitch] = useState<Task | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
   const handleStartTask = async (task: Task) => {
     if (new Date().getHours() >= 22) {
@@ -165,6 +167,9 @@ export default function TodayPage() {
   return (
     <>
       <div className="space-y-8 animate-in mt-4 pb-24">
+      {/* 宏观周看板 */}
+      <WeeklyStrip />
+
       {/* 顶部复盘与预测区 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <div className="md:col-span-2 flex flex-col justify-center">
@@ -308,6 +313,17 @@ export default function TodayPage() {
                       <span>预估 {formatDuration(task.est_time)}</span>
                     </div>
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {task.act_time === 0 && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 text-red-500 hover:text-red-700 hover:bg-red-50 px-2"
+                          onClick={() => setTaskToDelete(task)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          删除
+                        </Button>
+                      )}
                       <Button 
                         variant="ghost" 
                         size="sm" 
@@ -401,6 +417,28 @@ export default function TodayPage() {
         </DialogContent>
       </Dialog>
       
+      {/* 删除确认对话框 */}
+      <Dialog open={!!taskToDelete} onOpenChange={(open) => !open && setTaskToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确定删除任务？</DialogTitle>
+            <DialogDescription>
+              任务 <strong>{taskToDelete?.title}</strong> 尚未执行。删除后不可恢复且不计入任何统计。确信不需要该任务了吗？
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setTaskToDelete(null)}>取消</Button>
+            <Button variant="destructive" className="bg-red-600 hover:bg-red-700 text-white" onClick={async () => {
+              if (taskToDelete?.id) {
+                await TaskService.delete(taskToDelete.id);
+                setTaskToDelete(null);
+                loadTasks();
+              }
+            }}>确认删除</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* 沉浸动画转场遮罩 */}
       {isTransitioning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/95 backdrop-blur-sm animate-in fade-in duration-500">
