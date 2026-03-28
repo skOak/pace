@@ -200,7 +200,7 @@ export default function SettingsPage() {
                 <input
                   type="file"
                   accept="image/*"
-                  className="hidden"
+                  className="absolute opacity-0 w-0 h-0"
                   ref={avatarInputRef}
                   onChange={onAvatarFileChange}
                 />

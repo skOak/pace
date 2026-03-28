@@ -8,6 +8,7 @@ import { DailyAnchorService } from '@/services/daily-anchor-service';
 import { SettingsService } from '@/services/settings-service';
 import { calculateForecastTime, calculateDeviationRatio, formatTime, formatDuration } from '@/lib/forecast-utils';
 import { TaskStatus, type Task } from '@/lib/types';
+import { ensureDbReady } from '@/lib/db';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
 import { LiveTimer } from '@/components/LiveTimer';
 import { Card, CardContent } from '@/components/ui/card';
@@ -43,6 +44,8 @@ export default function TodayPage() {
 
   const loadTasks = useCallback(async () => {
     try {
+      await ensureDbReady();
+
       // 1. 先执行自动过期检查，清理非今天的未完成任务
       await TaskService.expireOverdueTasks();
 
@@ -76,8 +79,9 @@ export default function TodayPage() {
       } else {
         setActiveRunningStartTime(null);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('加载任务失败:', error);
+      alert(error.message || '加载任务失败');
     } finally {
       setLoading(false);
     }

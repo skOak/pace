@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { TaskService } from '@/services/task-service';
 import { TaskStatus, type Task } from '@/lib/types';
+import { ensureDbReady } from '@/lib/db';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Inbox, Trash2, ArrowRight } from 'lucide-react';
@@ -16,11 +17,13 @@ export default function InboxPage() {
 
   const loadTasks = useCallback(async () => {
     try {
+      await ensureDbReady();
       // 获取所有草稿任务
       const allTasks = await TaskService.getByStatus(TaskStatus.DRAFT);
       setTasks(allTasks);
-    } catch (error) {
+    } catch (error: any) {
       console.error('加载任务失败:', error);
+      alert(error.message || '加载任务失败');
     } finally {
       setLoading(false);
     }

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { StatsService, DayStat, TagStat } from '@/services/stats-service';
 import { Task, TaskStatus, DailyAnchor } from '@/lib/types';
 import { calculateDeviationRatio, formatDuration } from '@/lib/forecast-utils';
+import { ensureDbReady } from '@/lib/db';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PieChart, Target, Clock, Zap, Tags, CalendarDays, Activity, AlertCircle } from 'lucide-react';
 import { PieChart as RPieChart, Pie, Cell, Legend, LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
@@ -23,6 +24,7 @@ export default function InsightsPage() {
     const loadData = async () => {
       setLoading(true);
       try {
+        await ensureDbReady();
         const now = new Date();
         const start = new Date();
         if (dateRange === 'today') {
@@ -49,8 +51,9 @@ export default function InsightsPage() {
         setAnchors(a);
         setTagStats(ts);
         setDayStats(ds);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to load insights data', error);
+        alert(error.message || '加载洞察数据失败');
       } finally {
         setLoading(false);
       }
