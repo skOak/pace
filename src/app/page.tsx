@@ -9,6 +9,7 @@ import { SettingsService } from '@/services/settings-service';
 import { calculateForecastTime, calculateDeviationRatio, formatTime, formatDuration } from '@/lib/forecast-utils';
 import { TaskStatus, type Task } from '@/lib/types';
 import { ensureDbReady } from '@/lib/db';
+import { DbErrorScreen } from '@/components/DbErrorScreen';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
 import { LiveTimer } from '@/components/LiveTimer';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,6 +21,7 @@ import { WeeklyStrip } from '@/components/WeeklyStrip';
 export default function TodayPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dbError, setDbError] = useState(false);
   const [startAnchor, setStartAnchor] = useState<string | null>(null);
   const [endAnchor, setEndAnchor] = useState<string | null>(null);
   const [totalActTime, setTotalActTime] = useState(0);
@@ -30,10 +32,22 @@ export default function TodayPage() {
   const [transitionTaskName, setTransitionTaskName] = useState('');
   const [profileName, setProfileName] = useState('');
 
+  // 屏幕级移动端 Debug 日志
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const addLog = useCallback((msg: string) => {
+    setDebugLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - ${msg}`]);
+  }, []);
+
   useEffect(() => {
     const fetchProfile = async () => {
-      const profile = await SettingsService.getProfile();
-      if (profile?.name) setProfileName(profile.name);
+      addLog("Start fetchProfile");
+      try {
+        const profile = await SettingsService.getProfile();
+        if (profile?.name) setProfileName(profile.name);
+        addLog("End fetchProfile");
+      } catch(e: any) {
+        addLog(`fetchProfile error: ${e.message}`);
+      }
     };
     fetchProfile();
     window.addEventListener('pace_profile_updated', fetchProfile);
@@ -43,49 +57,67 @@ export default function TodayPage() {
 
 
   const loadTasks = useCallback(async () => {
+    addLog("loadTasks starting...");
     try {
+      addLog("Awaiting ensureDbReady...");
       await ensureDbReady();
+      addLog("ensureDbReady done!");
 
-      // 1. 先执行自动过期检查，清理非今天的未完成任务
-      await TaskService.expireOverdueTasks();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('数据读取操作超时，iOS 底层数据库事务可能遇阻。')), 5000)
+      );
 
-      // 1.5 如果时间超过 22:00 晚安期限，强制过期今天的未完成任务
-      if (new Date().getHours() >= 22) {
-        await TaskExecutionService.expireTodayUnfinishedTasks();
-      }
+      const fetchData = async () => {
+        addLog("fetchData: expireOverdueTasks");
+        await TaskService.expireOverdueTasks();
+        addLog("fetchData: getByDate");
 
-      // 2. 获取今天的任务
-      const today = new Date().toISOString().slice(0, 10);
-      const allTasks = await TaskService.getByDate(today);
+        // 1.5 如果时间超过 22:00 晚安期限，强制过期今天的未完成任务
+        if (new Date().getHours() >= 22) {
+          await TaskExecutionService.expireTodayUnfinishedTasks();
+        }
+
+        // 2. 获取今天的任务
+        const today = new Date().toISOString().slice(0, 10);
+        const allTasks = await TaskService.getByDate(today);
+        
+        // 3. 获取锚点
+        const anchor = await DailyAnchorService.get(today);
+        
+        // 4. 获取运行状态时间加成
+        const runningTask = allTasks.find(t => t.status === TaskStatus.RUNNING);
+        let activeStartTime: number | null = null;
+        if (runningTask && runningTask.id) {
+          const logs = await ExecutionLogService.getByTaskId(runningTask.id);
+          const activeLog = logs.find(l => !l.endTime);
+          if (activeLog) {
+            activeStartTime = new Date(activeLog.startTime).getTime();
+          }
+        }
+        
+        return { allTasks, anchor, activeStartTime };
+      };
+
+      addLog("starting Promise.race for fetchData");
+      const { allTasks, anchor, activeStartTime } = await Promise.race([fetchData(), timeoutPromise]) as any;
+      addLog("Promise.race completed!");
+
       setTasks(allTasks);
-
-      // 3. 获取锚点和总用时基础值
-      const anchor = await DailyAnchorService.get(today);
       setStartAnchor(anchor?.start_anchor ? formatTime(new Date(anchor.start_anchor)) : null);
       setStartAnchorDate(anchor?.start_anchor ? new Date(anchor.start_anchor) : null);
       setEndAnchor(anchor?.end_anchor ? formatTime(new Date(anchor.end_anchor)) : null);
-      setTotalActTime(allTasks.reduce((sum, t) => t.is_school_done ? sum : sum + t.act_time, 0));
+      setTotalActTime(allTasks.reduce((sum: number, t: Task) => t.is_school_done ? sum : sum + t.act_time, 0));
+      setActiveRunningStartTime(activeStartTime);
 
-      // 4. 获取运行中任务的活跃记录时间点，以提供动态时长加成
-      const runningTask = allTasks.find(t => t.status === TaskStatus.RUNNING);
-      if (runningTask && runningTask.id) {
-        const logs = await ExecutionLogService.getByTaskId(runningTask.id);
-        const activeLog = logs.find(l => !l.endTime);
-        if (activeLog) {
-          setActiveRunningStartTime(new Date(activeLog.startTime).getTime());
-        } else {
-          setActiveRunningStartTime(null);
-        }
-      } else {
-        setActiveRunningStartTime(null);
-      }
     } catch (error: any) {
+      addLog(`loadTasks catch block hit: ${error.message || error}`);
       console.error('加载任务失败:', error);
-      alert(error.message || '加载任务失败');
+      setDbError(true);
     } finally {
+      addLog("loadTasks finally block hit");
       setLoading(false);
     }
-  }, []);
+  }, [addLog]);
 
   // 每分钟更新一次当前时间以刷新预测和时长
   useEffect(() => {
@@ -153,10 +185,21 @@ export default function TodayPage() {
     loadTasks();
   }, [loadTasks]);
 
+  if (dbError) {
+    return <DbErrorScreen />;
+  }
+
+  const debugView = (
+    <div className="fixed top-0 left-0 right-0 z-[9999] bg-black/80 text-green-400 text-[10px] font-mono p-2 max-h-40 overflow-y-auto pointer-events-none break-words">
+      {debugLogs.map((l, i) => <div key={i}>{l}</div>)}
+    </div>
+  );
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <p className="text-gray-400 font-medium">加载今日节奏中...</p>
+      <div className="flex flex-col items-center justify-center min-h-[50vh]">
+        {/* {debugView} */}
+        <p className="text-gray-400 font-medium mt-4">加载今日节奏中...</p>
       </div>
     );
   }
@@ -182,6 +225,7 @@ export default function TodayPage() {
 
   return (
     <>
+      {/* {debugView} */}
       <div className="space-y-8 animate-in mt-4 pb-24">
       {/* 宏观周看板 */}
       <WeeklyStrip />

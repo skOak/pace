@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { TaskService } from '@/services/task-service';
 import { TaskStatus, type Task } from '@/lib/types';
 import { ensureDbReady } from '@/lib/db';
+import { DbErrorScreen } from '@/components/DbErrorScreen';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Inbox, Trash2, ArrowRight } from 'lucide-react';
@@ -13,17 +14,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 export default function InboxPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dbError, setDbError] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
   const loadTasks = useCallback(async () => {
     try {
       await ensureDbReady();
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('数据读取超时')), 5000));
       // 获取所有草稿任务
-      const allTasks = await TaskService.getByStatus(TaskStatus.DRAFT);
+      const allTasks = await Promise.race([
+        TaskService.getByStatus(TaskStatus.DRAFT),
+        timeoutPromise
+      ]) as Task[];
       setTasks(allTasks);
     } catch (error: any) {
       console.error('加载任务失败:', error);
-      alert(error.message || '加载任务失败');
+      setDbError(true);
     } finally {
       setLoading(false);
     }
@@ -53,6 +59,10 @@ export default function InboxPage() {
       console.error('移动任务失败:', error);
     }
   };
+
+  if (dbError) {
+    return <DbErrorScreen />;
+  }
 
   if (loading) {
     return (

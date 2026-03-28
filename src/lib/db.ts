@@ -69,3 +69,19 @@ export async function ensureDbReady(): Promise<void> {
       });
   });
 }
+
+/** 
+ * 彻底重置数据库服务，直接删除底层的 IndexedDB
+ */
+export async function hardResetDatabase(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    try {
+      const req = window.indexedDB.deleteDatabase('PaceDB');
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(new Error("彻底删除数据库失败"));
+      req.onblocked = () => console.warn("Delete blocked by other tabs");
+    } catch (e) {
+      reject(e);
+    }
+  });
+}

@@ -5,6 +5,7 @@ import { StatsService, DayStat, TagStat } from '@/services/stats-service';
 import { Task, TaskStatus, DailyAnchor } from '@/lib/types';
 import { calculateDeviationRatio, formatDuration } from '@/lib/forecast-utils';
 import { ensureDbReady } from '@/lib/db';
+import { DbErrorScreen } from '@/components/DbErrorScreen';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PieChart, Target, Clock, Zap, Tags, CalendarDays, Activity, AlertCircle } from 'lucide-react';
 import { PieChart as RPieChart, Pie, Cell, Legend, LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
@@ -17,6 +18,7 @@ export default function InsightsPage() {
   const [tagStats, setTagStats] = useState<TagStat[]>([]);
   const [dayStats, setDayStats] = useState<DayStat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dbError, setDbError] = useState(false);
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'year'>('today');
   const [sortBy, setSortBy] = useState<'default' | 'actualTime' | 'deviation'>('default');
 
@@ -40,12 +42,16 @@ export default function InsightsPage() {
         const startStr = start.toISOString().slice(0, 10);
         const endStr = now.toISOString().slice(0, 10);
 
-        const [t, a, ts, ds] = await Promise.all([
-          StatsService.getTasksInRange(startStr, endStr),
-          StatsService.getAnchorsInRange(startStr, endStr),
-          StatsService.getTagStats(startStr, endStr),
-          StatsService.getDailyStats(startStr, endStr)
-        ]);
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('数据读取超时')), 5000));
+        const [t, a, ts, ds] = await Promise.race([
+          Promise.all([
+            StatsService.getTasksInRange(startStr, endStr),
+            StatsService.getAnchorsInRange(startStr, endStr),
+            StatsService.getTagStats(startStr, endStr),
+            StatsService.getDailyStats(startStr, endStr)
+          ]),
+          timeoutPromise
+        ]) as any;
         
         setTasks(t);
         setAnchors(a);
@@ -53,13 +59,17 @@ export default function InsightsPage() {
         setDayStats(ds);
       } catch (error: any) {
         console.error('Failed to load insights data', error);
-        alert(error.message || '加载洞察数据失败');
+        setDbError(true);
       } finally {
         setLoading(false);
       }
     };
     loadData();
   }, [dateRange]);
+
+  if (dbError) {
+    return <DbErrorScreen />;
+  }
 
   if (loading) {
     return (

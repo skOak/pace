@@ -30,6 +30,31 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        {/* iOS 真机调试专用内核崩溃拦截器 (按需取消注释)
+        <script dangerouslySetInnerHTML={{ __html: `
+          window.onerror = function(msg, url, line, col, err) {
+            var div = document.createElement('div');
+            div.style = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:red;color:white;padding:10px;font-size:12px;word-break:break-all;';
+            div.innerText = 'Global Error: ' + msg + ' at ' + (url ? url.split('/').pop() : 'unknown') + ':' + line;
+            if(document.body) document.body.appendChild(div); else window.addEventListener('DOMContentLoaded', function() { document.body.appendChild(div); });
+          };
+          var oldErr = console.error;
+          console.error = function() {
+            oldErr.apply(console, arguments);
+            var msg = Array.from(arguments).map(function(a) { 
+              try { return a instanceof Error ? a.message : typeof a === 'object' ? JSON.stringify(a) : String(a); } catch(e) { return String(a); } 
+            }).join(' ');
+            if (msg.indexOf('Error') > -1 || msg.indexOf('Hydration') > -1 || msg.indexOf('Syntax') > -1 || msg.indexOf('Type') > -1 || msg.indexOf('Minified') > -1) {
+              var div = document.createElement('div');
+              div.style = 'position:fixed;top:50px;left:0;right:0;z-index:99999;background:purple;color:white;padding:10px;font-size:12px;word-break:break-all;';
+              div.innerText = 'React Error: ' + msg.substring(0, 200);
+              if(document.body) document.body.appendChild(div); else window.addEventListener('DOMContentLoaded', function() { document.body.appendChild(div); });
+            }
+          };
+        ` }} />
+        */}
+      </head>
       <body className="min-h-full flex flex-col bg-[#F8F9FA]" suppressHydrationWarning>
         <Sidebar />
         <div className="flex-1 md:pl-72 flex flex-col pb-16 md:pb-0">
