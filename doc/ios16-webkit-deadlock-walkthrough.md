@@ -20,7 +20,16 @@
 ## ✅ 验收与善后 (Validation & Cleanup)
 
 1. 在解决问题后，协助用户清理了 `.next` 缓存以彻底冲刷僵死内存。
-2. 将我们沿途埋放的顶级 DOM `onerror` 原生日志抓取器和悬浮 Debug 层**全部静默**（通过注释保留在了 `layout.tsx` 和 `page.tsx` 内，日后随时可按需热插拔使用）。
-3. 已自动触发完善的 Git Commit 消息，将这套健壮性加固体系归档。
-
 应用现在已经在所有环境表现得坚不可摧！
+
+## 🚀 最终的拼图：局域网开发环境跨域拦截 (Epilogue)
+
+随着进一步排查，用户反馈了一个关键现象：**使用 `npm run build && npm run start`（生产环境）启动后，无论在任何设备、任何 IP 下一切问题瞬间消失；而只要是 `npm run dev` 并在非 localhost（例如 `192.168.0.29`）访问时就必然挂起。**
+
+这暴露了 Next.js 15+ 框架引入的一项极易被忽视的新安全策略：
+1. **HMR WebSocket 被拦截**：Next.js 最新版的 Dev Server 为了防范跨站 WebSocket 劫持攻击，默认屏蔽了所有非 `localhost` 的跨域 HMR 请求（`_next/webpack-hmr`）。
+2. **白屏锁死链**：因为 WebSocket 被框架服务端主动拒绝，Turbopack 无法将后续懒编译的动态 JS Chunks 推送给客户端机器。这就导致 React 永远停留在最初 SSR 下发的静态 HTML 外壳上，所有的 `useEffect` 不执行，屏幕自然永远显示“加载今日节奏中...”。
+3. **精准修复**：只需在 `next.config.ts` 中配置 `allowedDevOrigins: ['192.168.0.29']` 即可将开发设备加入安全白名单，恢复局域网内的热更新数据流。
+
+**最终结论：**
+本场硬核跨设备排障长达 37 小时，融合了双层 Bug：一是 iOS 16 WebKit 天然无法解析高版本编译产物导致的 SyntaxError 崩溃（由降级编译解决）；二是局域网开发测试时惨遭 Next.js 原生安全底座拦截的连带死锁。但在层层剥丝抽茧中，我们不仅修复了框架报错，更意外建立起了一整套防范 IndexedDB 损坏与死锁的自愈底层，因祸得福！
