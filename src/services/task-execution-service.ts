@@ -64,7 +64,7 @@ export class TaskExecutionService {
 
     // 重新计算该任务的实际耗时
     const totalTime = await ExecutionLogService.calculateTotalTime(taskId);
-    await TaskService.update(taskId, { act_time: Math.round(totalTime) });
+    await TaskService.update(taskId, { act_time: totalTime });
     await TaskService.updateStatus(taskId, TaskStatus.PAUSED);
   }
 
@@ -84,7 +84,7 @@ export class TaskExecutionService {
         await ExecutionLogService.endLog(activeLog.id);
       }
       const totalTime = await ExecutionLogService.calculateTotalTime(taskId);
-      await TaskService.update(taskId, { act_time: Math.round(totalTime) });
+      await TaskService.update(taskId, { act_time: totalTime });
     }
 
     const today = new Date().toISOString().slice(0, 10);

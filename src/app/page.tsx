@@ -303,7 +303,7 @@ export default function TodayPage() {
                 <div className="flex flex-col items-end gap-3 text-right">
                   <div className="flex items-center gap-1.5 text-blue-600 font-medium">
                     <Clock className="w-4 h-4" />
-                    <span>已专注 <LiveTimer taskId={task.id!} baseActTime={task.act_time} /> / 预估 {formatDuration(task.est_time)}</span>
+                    <span><LiveTimer taskId={task.id!} baseActTime={task.act_time} /> / 预估 {formatDuration(task.est_time)}</span>
                   </div>
                   <div className="flex gap-2">
                     <Button 
@@ -369,10 +369,10 @@ export default function TodayPage() {
                   </div>
                   <div className="flex flex-col items-end gap-2 text-right">
                     <div className="flex items-center gap-1.5 text-sm text-gray-400 font-medium">
-                      {task.status === TaskStatus.PAUSED && <span>已用 {formatDuration(task.act_time)} / </span>}
+                      {task.status === TaskStatus.PAUSED && <span><LiveTimer taskId={task.id!} baseActTime={task.act_time} className="font-mono tabular-nums text-gray-400 font-medium tracking-tight" /> / </span>}
                       <span>预估 {formatDuration(task.est_time)}</span>
                     </div>
-                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-2 transition-opacity">
                       {task.act_time === 0 && (
                         <Button 
                           variant="ghost" 
