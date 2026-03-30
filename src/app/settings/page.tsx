@@ -9,9 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Download, Upload, AlertTriangle, KeyRound, CheckCircle2, UserCircle, Image as ImageIcon } from 'lucide-react';
 import { AvatarCropper } from '@/components/AvatarCropper';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 export default function SettingsPage() {
   const [importing, setImporting] = useState(false);
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
@@ -318,6 +320,32 @@ export default function SettingsPage() {
             )}
           </CardFooter>
         </Card>
+
+        <Card className="border-red-100 shadow-sm mt-8">
+          <CardHeader className="bg-red-50/50 rounded-t-xl pb-4 border-b border-red-100">
+            <CardTitle className="text-red-600 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              危险区域
+            </CardTitle>
+            <CardDescription className="text-red-600/80">
+              这些操作不可逆，请谨慎使用。
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h4 className="font-medium text-gray-900">清空所有记录</h4>
+                <p className="text-sm text-gray-500 mt-1">这会永久删除所有任务、专注历史和统计洞察数据，恢复为初始状态。</p>
+              </div>
+              <Button 
+                variant="destructive" 
+                onClick={() => setConfirmClearOpen(true)}
+              >
+                清空数据
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <AvatarCropper 
@@ -325,6 +353,20 @@ export default function SettingsPage() {
         onOpenChange={setCropperOpen} 
         imageUrl={cropperImageUrl} 
         onCropSave={handleCropSave} 
+      />
+
+      <ConfirmDialog
+        open={confirmClearOpen}
+        onOpenChange={setConfirmClearOpen}
+        title="清空所有记录"
+        description="警告：此操作将永久抹除您所有的任务、统计数据和预估洞察记录，恢复为出厂空状态。由于没有云端备份，此操作绝对不可逆，请三思而后行。"
+        confirmText="永久清空"
+        cancelText="取消"
+        isDestructive={true}
+        onConfirm={async () => {
+          await DataService.clearAllData();
+          window.location.href = '/';
+        }}
       />
     </div>
   );

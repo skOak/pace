@@ -79,14 +79,16 @@ export default function InsightsPage() {
     );
   }
 
-  const completedTasks = tasks.filter(t => t.status === TaskStatus.COMPLETED);
+  const allCompletedTasks = tasks.filter(t => t.status === TaskStatus.COMPLETED);
+  const validCompletedTasks = allCompletedTasks.filter(t => !t.is_school_done);
   const expiredTasks = tasks.filter(t => t.status === TaskStatus.EXPIRED);
-  const totalCompleted = completedTasks.length;
+  const totalCompleted = allCompletedTasks.length; // 任务数依然统计全部完成的
   
-  const estimatedTasks = completedTasks.filter(t => t.est_time > 0);
+  const estimatedTasks = validCompletedTasks.filter(t => t.est_time > 0);
   const totalEstTime = estimatedTasks.reduce((sum, t) => sum + t.est_time, 0);
+  // 偏差比较必须完全对齐：只取既有预估时间、又不是校内默认完成的任务
   const totalActTimeForDeviation = estimatedTasks.reduce((sum, t) => sum + t.act_time, 0);
-  const totalActTimeOverall = completedTasks.reduce((sum, t) => sum + t.act_time, 0);
+  const totalActTimeOverall = validCompletedTasks.reduce((sum, t) => sum + t.act_time, 0);
   
   let overallDeviation = 0;
   if (totalEstTime > 0) {
@@ -409,20 +411,20 @@ export default function InsightsPage() {
           </select>
         </CardHeader>
         <CardContent className="p-0">
-          {completedTasks.length === 0 ? (
+          {validCompletedTasks.length === 0 ? (
             <div className="p-12 text-center text-gray-400">
-              该时段尚未完成任何任务。
+              该时段尚未通过专注完成任何任务。
             </div>
           ) : (
             <div className="divide-y divide-gray-100 h-96 overflow-y-auto">
               {(() => {
-                let sortedList = [...completedTasks];
+                let sortedList = [...validCompletedTasks];
                 if (sortBy === 'actualTime') {
                   sortedList.sort((a, b) => b.act_time - a.act_time);
                 } else if (sortBy === 'deviation') {
                   sortedList.sort((a, b) => {
-                    const devA = (a.est_time > 0 && !a.is_school_done) ? Math.abs(a.act_time - a.est_time) : -1;
-                    const devB = (b.est_time > 0 && !b.is_school_done) ? Math.abs(b.act_time - b.est_time) : -1;
+                    const devA = (a.est_time > 0) ? Math.abs(a.act_time - a.est_time) : -1;
+                    const devB = (b.est_time > 0) ? Math.abs(b.act_time - b.est_time) : -1;
                     return devB - devA;
                   });
                 }

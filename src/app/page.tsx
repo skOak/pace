@@ -8,9 +8,11 @@ import { DailyAnchorService } from '@/services/daily-anchor-service';
 import { SettingsService } from '@/services/settings-service';
 import { calculateForecastTime, calculateDeviationRatio, formatTime, formatDuration } from '@/lib/forecast-utils';
 import { TaskStatus, type Task } from '@/lib/types';
+import { DataService } from '@/services/data-service';
 import { ensureDbReady } from '@/lib/db';
 import { DbErrorScreen } from '@/components/DbErrorScreen';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { LiveTimer } from '@/components/LiveTimer';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,6 +33,7 @@ export default function TodayPage() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionTaskName, setTransitionTaskName] = useState('');
   const [profileName, setProfileName] = useState('');
+  const [clearTodayOpen, setClearTodayOpen] = useState(false);
 
   // 屏幕级移动端 Debug 日志
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
@@ -108,6 +111,7 @@ export default function TodayPage() {
       setEndAnchor(anchor?.end_anchor ? formatTime(new Date(anchor.end_anchor)) : null);
       setTotalActTime(allTasks.reduce((sum: number, t: Task) => t.is_school_done ? sum : sum + t.act_time, 0));
       setActiveRunningStartTime(activeStartTime);
+      setCurrentTime(new Date()); // 确保每次刷新数据时，基准时间立刻对齐当前，避免计算总用时时出现负差或延迟
 
     } catch (error: any) {
       addLog(`loadTasks catch block hit: ${error.message || error}`);
@@ -119,15 +123,16 @@ export default function TodayPage() {
     }
   }, [addLog]);
 
-  // 每分钟更新一次当前时间以刷新预测和时长
+  // 实时更新当前时间（1秒），以确保右侧“今日总用时”能实时跟进碎片时间的每一秒变化
   useEffect(() => {
     const timer = setInterval(() => {
       const now = new Date();
       setCurrentTime(now);
-      if (now.getHours() >= 22) {
+      // 整点跨过 22:00 边界时触发处理过期（利用精确的时分秒落点避免高频重复执行，仅在 22:00:00 触发一次）
+      if (now.getHours() === 22 && now.getMinutes() === 0 && now.getSeconds() === 0) {
         loadTasks();
       }
-    }, 60000);
+    }, 1000);
     return () => clearInterval(timer);
   }, [loadTasks]);
 
@@ -209,16 +214,21 @@ export default function TodayPage() {
   const pendingTasks = tasks.filter((t) => t.status === TaskStatus.PENDING || t.status === TaskStatus.PAUSED);
   const completedTasks = tasks.filter((t) => t.status === TaskStatus.COMPLETED);
 
-  const expectedFinishTime = formatTime(calculateForecastTime(tasks, currentTime), currentTime);
+  const expectedFinishTime = formatTime(calculateForecastTime(tasks, currentTime, activeRunningStartTime), currentTime);
 
-  // 动态总用时 = 数据库所有任务的基础 total + 当前正在执行碎片的时间差
-  let displayTotalTime = totalActTime;
-  if (activeRunningStartTime) {
-    displayTotalTime += Math.floor((currentTime.getTime() - activeRunningStartTime) / 60000);
-  }
+  // 这里的核心修复：将时间统一转换为“总秒数”再除以60还原为精确分钟数，这样能避免分别对 act_time 和 elapsed_ms 提前取整或丢失秒数，保证与 LiveTimer 绝对一致。
+  const elapsedSeconds = activeRunningStartTime ? (currentTime.getTime() - activeRunningStartTime) / 1000 : 0;
+  const displayTotalTime = (totalActTime * 60 + elapsedSeconds) / 60;
 
   const isAllCompleted = tasks.length > 0 && pendingTasks.length === 0 && runningTasks.length === 0;
   const displayEndAnchor = isAllCompleted ? endAnchor : null;
+
+  const hasManualStart = tasks.some(t => 
+    t.status === TaskStatus.RUNNING || 
+    t.status === TaskStatus.PAUSED || 
+    (t.status === TaskStatus.COMPLETED && !t.is_school_done) ||
+    (!t.is_school_done && t.act_time > 0)
+  );
 
   const isSparkEligible = startAnchorDate && startAnchorDate.getHours() >= 17 && startAnchorDate.getHours() < 18;
   const sparkTaskId = isSparkEligible ? (runningTasks.length > 0 ? runningTasks[0].id : (pendingTasks.length > 0 ? pendingTasks[0].id : null)) : null;
@@ -233,7 +243,20 @@ export default function TodayPage() {
       {/* 顶部复盘与预测区 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <div className="md:col-span-2 flex flex-col justify-center">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">今天</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900">今天</h1>
+            {tasks.length > 0 && !hasManualStart && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="text-red-600 border-red-200 bg-red-50 hover:bg-red-100 hover:text-red-700 hover:border-red-300 mt-1 md:mt-0 px-3 h-8 shadow-sm transition-colors font-medium"
+                onClick={() => setClearTodayOpen(true)}
+              >
+                <Trash2 className="w-4 h-4 mr-1.5" />
+                清空今日重置
+              </Button>
+            )}
+          </div>
           <div className="mt-1 text-sm md:text-base">
             {pendingTasks.length + runningTasks.length > 0 ? (
               <p className="text-gray-500 flex items-center gap-2">
@@ -510,6 +533,21 @@ export default function TodayPage() {
           </div>
         </div>
       )}
+      {/* 统一确认弹窗 */}
+      <ConfirmDialog
+        open={clearTodayOpen}
+        onOpenChange={setClearTodayOpen}
+        title="清空今日重置"
+        description="确定要清空今天的所有任务和记录吗？如果你不小心导入了错误的批量文本，这是一个很好的后悔药。此操作不可恢复。"
+        confirmText="清空"
+        cancelText="取消"
+        isDestructive={true}
+        onConfirm={async () => {
+          const today = new Date().toISOString().slice(0, 10);
+          await DataService.clearTodayData(today);
+          await loadTasks();
+        }}
+      />
     </>
   );
 }

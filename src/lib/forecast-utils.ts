@@ -25,10 +25,17 @@ export function calculateRemainingTime(task: Task): number {
  * @param currentTime 当前参考时间（默认为当前时间）
  * @returns 预计完工时间的 Date 对象
  */
-export function calculateForecastTime(tasks: Task[], currentTime: Date = new Date()): Date {
+export function calculateForecastTime(tasks: Task[], currentTime: Date = new Date(), activeRunningStartTime?: number | null): Date {
   const pendingCount = tasks.filter(t => t.status === TaskStatus.PENDING || t.status === TaskStatus.PAUSED).length;
   const bufferTimeMin = pendingCount * 5;
-  const totalRemainingMin = tasks.reduce((sum, task) => sum + calculateRemainingTime(task), 0);
+  let totalRemainingMin = tasks.reduce((sum, task) => sum + calculateRemainingTime(task), 0);
+  
+  // 核心修复：正在进行的任务的时间已经变成“沉没成本”（不属于剩余时间），如果不减去，随着时间推移预计收尾时间会被不断推迟
+  if (activeRunningStartTime) {
+    const elapsedMinutes = (currentTime.getTime() - activeRunningStartTime) / 60000;
+    totalRemainingMin = Math.max(totalRemainingMin - elapsedMinutes, 0);
+  }
+
   return new Date(currentTime.getTime() + (totalRemainingMin + bufferTimeMin) * 60 * 1000);
 }
 
@@ -78,8 +85,8 @@ export function formatTime(date: Date | null | undefined, now: Date = new Date()
  */
 export function formatDuration(minutes: number): string {
   if (isNaN(minutes) || minutes < 0) return '0m';
-  if (minutes < 60) return `${Math.round(minutes)}m`;
+  if (minutes < 60) return `${Math.floor(minutes)}m`;
   const h = Math.floor(minutes / 60);
-  const m = Math.round(minutes % 60);
+  const m = Math.floor(minutes % 60);
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }

@@ -172,7 +172,26 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
 
     setLoading(true);
     try {
-      const lines = batchText.split('\n').map(l => l.trimEnd()).filter(l => l.trim());
+      const rawLines = batchText.split('\n').map(l => l.trim()).filter(Boolean);
+      const lines: string[] = [];
+      const bulletRegex = /^(?:\[?(?:✓|v|√|校内完成)\]?)?\s*(?:[-*+]|\d+[.、])\s*(?:(?:✓|v|√)\s*)?$/i;
+      const bulletPrefixRegex = /^(?:\[?(?:✓|v|√|校内完成)\]?)?\s*(?:[-*+]|\d+[.、])/i;
+
+      for (let i = 0; i < rawLines.length; i++) {
+        let line = rawLines[i];
+        
+        // 如果这行仅仅是个标号（如 "2." 或 "√ 2."），尝试合并下一行
+        if (bulletRegex.test(line) && i + 1 < rawLines.length) {
+          const nextLine = rawLines[i + 1];
+          // 如果下一行不是一个新标号（也不是明确的组头），就合并，解决 OCR 换行断裂问题
+          if (!bulletPrefixRegex.test(nextLine)) {
+             line = line + ' ' + nextLine;
+             i++;
+          }
+        }
+        lines.push(line);
+      }
+
       let currentGroupTag = '';
 
       for (let i = 0; i < lines.length; i++) {
@@ -182,17 +201,17 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
         let rawTitle = trimmed;
         let groupTagToAdd = '';
 
-        // 判断当前行是否为子任务 (支持 - 或 * 或 + 或数字如 1. 1、 开头)
-        const subTaskMatch = line.match(/^\s*(?:[-*+]|\d+[.、])\s*(.*)/);
+        // 判断当前行是否为子任务 (支持 - 或 * 或 + 或数字如 1. 1、 开头，允许包含前的 √)
+        const subTaskMatch = line.match(/^(\s*(?:\[?(?:✓|v|√|校内完成)\]?\s*)?)(?:[-*+]|\d+[.、])\s*(.*)/i);
         if (subTaskMatch) {
-          rawTitle = subTaskMatch[1];
+          rawTitle = subTaskMatch[1] + subTaskMatch[2];
           groupTagToAdd = currentGroupTag; // 继承上方科目
         } else {
           // 当前不是子任务，判定它是普通的独立任务(Format 1)，还是科目组Header(Format 2)
           let isGroupHeader = false;
           if (i + 1 < lines.length) {
             const nextLine = lines[i + 1];
-            if (nextLine.match(/^\s*(?:[-*+]|\d+[.、])/)) {
+            if (bulletPrefixRegex.test(nextLine)) {
               isGroupHeader = true;
             }
           }

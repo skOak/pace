@@ -22,6 +22,41 @@ export class DataService {
   }
 
   /**
+   * 清空所有数据 (用于测试与重置)
+   */
+  static async clearAllData(): Promise<void> {
+    await db.transaction('rw', db.tasks, db.execution_logs, db.daily_anchors, async () => {
+      await db.tasks.clear();
+      await db.execution_logs.clear();
+      await db.daily_anchors.clear();
+    });
+  }
+
+  /**
+   * 清空指定日期的任务及相关记录
+   */
+  static async clearTodayData(dateStr: string): Promise<void> {
+    await db.transaction('rw', db.tasks, db.execution_logs, db.daily_anchors, async () => {
+      // 获取当天的任务
+      const todayTasks = await db.tasks.where('date').equals(dateStr).toArray();
+      const taskIds = todayTasks.map(t => t.id).filter(id => id !== undefined) as number[];
+      
+      if (taskIds.length > 0) {
+        // 删除当天的所有任务
+        await db.tasks.bulkDelete(taskIds);
+        
+        // 删除这些任务关联的所有执行记录
+        const logs = await db.execution_logs.where('taskId').anyOf(taskIds).toArray();
+        const logIds = logs.map(l => l.id).filter(id => id !== undefined) as number[];
+        await db.execution_logs.bulkDelete(logIds);
+      }
+      
+      // 删除当天的锚点
+      await db.daily_anchors.delete(dateStr);
+    });
+  }
+
+  /**
    * 从 JSON 字符串全量恢复数据
    * 警告：这将清空现有数据
    */
