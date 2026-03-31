@@ -177,8 +177,8 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
     try {
       const rawLines = batchText.split('\n').map(l => l.trim()).filter(Boolean);
       const lines: string[] = [];
-      const bulletRegex = /^(?:\[?(?:✓|v|√|校内完成)\]?)?\s*(?:[-*+]|\d+[.、])\s*(?:(?:✓|v|√)\s*)?$/i;
-      const bulletPrefixRegex = /^(?:\[?(?:✓|v|√|校内完成)\]?)?\s*(?:[-*+]|\d+[.、])/i;
+      const bulletRegex = /^(?:\[?(?:✓|v|√|✅|☑️|✔️|✔|校内完成)\]?)?\s*(?:[-*+]|\d+[.、])\s*(?:(?:✓|v|√|✅|☑️|✔️|✔)\s*)?$/i;
+      const bulletPrefixRegex = /^(?:\[?(?:✓|v|√|✅|☑️|✔️|✔|校内完成)\]?)?\s*(?:[-*+]|\d+[.、])/i;
 
       for (let i = 0; i < rawLines.length; i++) {
         let line = rawLines[i];
@@ -205,7 +205,7 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
         let groupTagToAdd = '';
 
         // 判断当前行是否为子任务 (支持 - 或 * 或 + 或数字如 1. 1、 开头，允许包含前的 √)
-        const subTaskMatch = line.match(/^(\s*(?:\[?(?:✓|v|√|校内完成)\]?\s*)?)(?:[-*+]|\d+[.、])\s*(.*)/i);
+        const subTaskMatch = line.match(/^(\s*(?:\[?(?:✓|v|√|✅|☑️|✔️|✔|校内完成)\]?\s*)?)(?:[-*+]|\d+[.、])\s*(.*)/i);
         if (subTaskMatch) {
           rawTitle = subTaskMatch[1] + subTaskMatch[2];
           groupTagToAdd = currentGroupTag; // 继承上方科目
@@ -240,7 +240,7 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
         let title = rawTitle;
 
         // 解析 [✓...] 或 ✓、√ 或 校内完成 (支持紧贴文本如 签字√)
-        const schoolDoneMatch = title.match(/\[(✓|v|√|校内完成).*?\]/i) || title.match(/(✓|√|校内完成)/) || title.match(/(?:^|\s)v(?:\s|$)/i);
+        const schoolDoneMatch = title.match(/\[(✓|v|√|✅|☑️|✔️|✔|校内完成).*?\]/i) || title.match(/(✓|√|✅|☑️|✔️|✔|校内完成)/) || title.match(/(?:^|\s)v(?:\s|$)/i);
         if (schoolDoneMatch) {
           isSchoolDone = true;
           title = title.replace(schoolDoneMatch[0], '');
