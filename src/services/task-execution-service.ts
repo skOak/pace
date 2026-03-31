@@ -24,6 +24,10 @@ export class TaskExecutionService {
     const task = await TaskService.getById(taskId);
     if (!task) throw new Error(`任务不存在: id=${taskId}`);
 
+    if (task.status === TaskStatus.RUNNING) {
+      return; // 已经是在执行状态，直接返回（防止因前端状态延迟导致的重复调用报错）
+    }
+
     // 如果指定的 currentRunningId 存在并且正在运行，则暂停它
     if (currentRunningId && currentRunningId !== taskId) {
       await this.pauseTask(currentRunningId);

@@ -9,11 +9,15 @@ import { SettingsService } from '@/services/settings-service';
 import { calculateForecastTime, calculateDeviationRatio, formatTime, formatDuration } from '@/lib/forecast-utils';
 import { TaskStatus, type Task } from '@/lib/types';
 import { DataService } from '@/services/data-service';
+import { HabitService } from '@/services/habit-service';
 import { ensureDbReady } from '@/lib/db';
 import { DbErrorScreen } from '@/components/DbErrorScreen';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { TaskFeedbackDialog } from '@/components/TaskFeedbackDialog';
+import { TaskReopenDialog } from '@/components/TaskReopenDialog';
 import { LiveTimer } from '@/components/LiveTimer';
+import { TaskDetailWorkbench } from '@/components/TaskDetailWorkbench';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -34,6 +38,10 @@ export default function TodayPage() {
   const [transitionTaskName, setTransitionTaskName] = useState('');
   const [profileName, setProfileName] = useState('');
   const [clearTodayOpen, setClearTodayOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  
+  const [feedbackTask, setFeedbackTask] = useState<Task | null>(null);
+  const [reopenTask, setReopenTask] = useState<Task | null>(null);
 
   // 屏幕级移动端 Debug 日志
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
@@ -73,6 +81,10 @@ export default function TodayPage() {
       const fetchData = async () => {
         addLog("fetchData: expireOverdueTasks");
         await TaskService.expireOverdueTasks();
+        
+        addLog("fetchData: bootstrapSync");
+        await HabitService.bootstrapSync();
+        
         addLog("fetchData: getByDate");
 
         // 1.5 如果时间超过 22:00 晚安期限，强制过期今天的未完成任务
@@ -111,6 +123,11 @@ export default function TodayPage() {
       setEndAnchor(anchor?.end_anchor ? formatTime(new Date(anchor.end_anchor)) : null);
       setTotalActTime(allTasks.reduce((sum: number, t: Task) => t.is_school_done ? sum : sum + t.act_time, 0));
       setActiveRunningStartTime(activeStartTime);
+
+      setSelectedTask(prev => {
+        if (!prev) return null;
+        return allTasks.find((t: Task) => t.id === prev.id) || null;
+      });
       setCurrentTime(new Date()); // 确保每次刷新数据时，基准时间立刻对齐当前，避免计算总用时时出现负差或延迟
 
     } catch (error: any) {
@@ -176,14 +193,39 @@ export default function TodayPage() {
     }, 800);
   };
 
-  const handlePauseTask = async (task: Task) => {
+  const handlePauseTask = async (task: Task, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     await TaskExecutionService.pauseTask(task.id!);
     loadTasks();
   };
 
-  const handleCompleteTask = async (task: Task) => {
-    await TaskExecutionService.completeTask(task.id!);
-    loadTasks();
+  const handleCompleteTask = async (task: Task, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setFeedbackTask(task); // 打开评价弹窗
+  };
+
+  const handleConfirmFeedback = async (comments: string) => {
+    if (feedbackTask && feedbackTask.id) {
+      if (comments.trim()) {
+        await TaskService.update(feedbackTask.id, { comments: comments.trim() });
+      }
+      await TaskExecutionService.completeTask(feedbackTask.id);
+      loadTasks();
+      setFeedbackTask(null);
+    }
+  };
+
+  const handleConfirmReopen = async (reason: string) => {
+    if (reopenTask && reopenTask.id) {
+      const existingComments = reopenTask.comments ? `${reopenTask.comments}\n` : '';
+      const newComment = `[重开原因]: ${reason}`;
+      await TaskService.update(reopenTask.id, { comments: existingComments + newComment, status: TaskStatus.PENDING });
+      loadTasks();
+      setReopenTask(null);
+      
+      // 同步关闭选中的侧边栏（如果它正打开）
+      setSelectedTask(null);
+    }
   };
 
   useEffect(() => {
@@ -308,11 +350,12 @@ export default function TodayPage() {
           {runningTasks.map((task) => {
             const isSparkTask = task.id === sparkTaskId;
             return (
-            <Card key={task.id} className={`border-blue-100 shadow-md ${isSparkTask ? 'shadow-yellow-200/50 border-yellow-400 bg-gradient-to-r from-yellow-50 to-white' : 'shadow-blue-500/5 bg-gradient-to-r from-blue-50 to-white'}`}>
+            <Card key={task.id} className={`border-blue-100 shadow-md cursor-pointer transition-transform hover:scale-[1.01] ${isSparkTask ? 'shadow-yellow-200/50 border-yellow-400 bg-gradient-to-r from-yellow-50 to-white' : 'shadow-blue-500/5 bg-gradient-to-r from-blue-50 to-white'}`} onClick={() => setSelectedTask(task)}>
               <CardContent className="p-5 flex items-center justify-between">
                 <div>
                   <h3 className="font-semibold text-blue-900 text-lg flex items-center gap-2">
                     {task.title}
+                    {task.difficulty ? <span className="text-sm">{'⭐'.repeat(task.difficulty)}</span> : null}
                     {isSparkTask && <span className="text-yellow-500 animate-pulse text-xl">⚡</span>}
                   </h3>
                   <div className="flex gap-2 mt-2">
@@ -326,7 +369,7 @@ export default function TodayPage() {
                 <div className="flex flex-col items-end gap-3 text-right">
                   <div className="flex items-center gap-1.5 text-blue-600 font-medium">
                     <Clock className="w-4 h-4" />
-                    <span><LiveTimer taskId={task.id!} baseActTime={task.act_time} /> / 预估 {formatDuration(task.est_time)}</span>
+                    <span><LiveTimer taskId={task.id!} baseActTime={task.act_time} status={task.status} /> / 预估 {formatDuration(task.est_time)}</span>
                   </div>
                   <div className="flex gap-2">
                     <Button 
@@ -373,11 +416,12 @@ export default function TodayPage() {
             {pendingTasks.map((task) => {
               const isSparkTask = task.id === sparkTaskId;
               return (
-              <Card key={task.id} className={`group shadow-sm hover:shadow-md transition-all ${isSparkTask ? 'border-yellow-400 bg-yellow-50/10' : 'border-gray-100'}`}>
+              <Card key={task.id} className={`group shadow-sm hover:shadow-md transition-all cursor-pointer hover:scale-[1.01] ${isSparkTask ? 'border-yellow-400 bg-yellow-50/10' : 'border-gray-100'}`} onClick={() => setSelectedTask(task)}>
                 <CardContent className="p-4 flex items-center justify-between">
                   <div>
                     <h3 className="font-medium text-gray-800 flex items-center gap-2">
                       {task.title}
+                      {task.difficulty ? <span className="text-xs">{'⭐'.repeat(task.difficulty)}</span> : null}
                       {isSparkTask && <span className="text-yellow-500 text-sm">⚡</span>}
                     </h3>
                     {task.tags.length > 0 && (
@@ -392,7 +436,7 @@ export default function TodayPage() {
                   </div>
                   <div className="flex flex-col items-end gap-2 text-right">
                     <div className="flex items-center gap-1.5 text-sm text-gray-400 font-medium">
-                      {task.status === TaskStatus.PAUSED && <span><LiveTimer taskId={task.id!} baseActTime={task.act_time} className="font-mono tabular-nums text-gray-400 font-medium tracking-tight" /> / </span>}
+                      {task.status === TaskStatus.PAUSED && <span><LiveTimer taskId={task.id!} baseActTime={task.act_time} status={task.status} className="font-mono tabular-nums text-gray-400 font-medium tracking-tight" /> / </span>}
                       <span>预估 {formatDuration(task.est_time)}</span>
                     </div>
                     <div className="flex gap-2 transition-opacity">
@@ -401,7 +445,7 @@ export default function TodayPage() {
                           variant="ghost" 
                           size="sm" 
                           className="h-7 text-red-500 hover:text-red-700 hover:bg-red-50 px-2"
-                          onClick={() => setTaskToDelete(task)}
+                          onClick={(e) => { e.stopPropagation(); setTaskToDelete(task); }}
                         >
                           <Trash2 className="w-4 h-4 mr-1" />
                           删除
@@ -411,7 +455,7 @@ export default function TodayPage() {
                         variant="ghost" 
                         size="sm" 
                         className="h-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2"
-                        onClick={() => handleStartTask(task)}
+                        onClick={(e) => { e.stopPropagation(); handleStartTask(task); }}
                       >
                         <PlayCircle className="w-4 h-4 mr-1" />
                         {task.status === TaskStatus.PAUSED ? '继续' : '开始'}
@@ -420,7 +464,7 @@ export default function TodayPage() {
                         variant="ghost" 
                         size="sm" 
                         className="h-7 text-green-600 hover:text-green-700 hover:bg-green-50 px-2"
-                        onClick={() => handleCompleteTask(task)}
+                        onClick={(e) => { e.stopPropagation(); handleCompleteTask(task); }}
                       >
                         <CheckCircle2 className="w-4 h-4 mr-1" />
                         完成
@@ -449,7 +493,7 @@ export default function TodayPage() {
               const ratioPercent = isNA ? 0 : Math.round(ratio * 100);
               
               return (
-                <div key={task.id} className="relative p-3 bg-gray-50/50 rounded-xl flex items-center justify-between opacity-80 overflow-hidden shadow-sm">
+                <div key={task.id} className="relative p-3 bg-gray-50/50 rounded-xl flex items-center justify-between opacity-80 overflow-hidden shadow-sm cursor-pointer hover:bg-gray-100/50 hover:opacity-100 transition-all" onClick={() => setSelectedTask(task)}>
                   {!isNA && (
                     <div 
                       className={`absolute top-0 left-0 h-full opacity-10 ${isGood ? 'bg-green-500' : 'bg-red-500'}`} 
@@ -458,6 +502,7 @@ export default function TodayPage() {
                   )}
                   <div className="flex items-center gap-3 relative z-10">
                     <span className="text-gray-500 line-through">{task.title}</span>
+                    {task.difficulty ? <span className="text-xs grayscale opacity-50">{'⭐'.repeat(task.difficulty)}</span> : null}
                     {isNA ? (
                       <span className="text-[10px] px-1.5 py-0.5 rounded-sm font-bold bg-gray-200 text-gray-500">
                         校内完成
@@ -547,6 +592,38 @@ export default function TodayPage() {
           await DataService.clearTodayData(today);
           await loadTasks();
         }}
+      />
+      <TaskDetailWorkbench 
+        task={selectedTask} 
+        open={!!selectedTask} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedTask(null);
+            loadTasks();
+          }
+        }} 
+        onDataChanged={loadTasks} 
+        onRequestReopen={(t) => {
+          setReopenTask(t);
+          setSelectedTask(null);
+        }}
+        onRequestComplete={(t) => {
+          setFeedbackTask(t);
+          setSelectedTask(null);
+        }}
+      />
+      
+      <TaskFeedbackDialog
+        task={feedbackTask}
+        open={!!feedbackTask}
+        onOpenChange={(open) => !open && setFeedbackTask(null)}
+        onConfirm={handleConfirmFeedback}
+      />
+      <TaskReopenDialog
+        task={reopenTask}
+        open={!!reopenTask}
+        onOpenChange={(open) => !open && setReopenTask(null)}
+        onConfirm={handleConfirmReopen}
       />
     </>
   );

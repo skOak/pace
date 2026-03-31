@@ -6,6 +6,7 @@ import { TaskStatus, type Task } from '@/lib/types';
 import { ensureDbReady } from '@/lib/db';
 import { DbErrorScreen } from '@/components/DbErrorScreen';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
+import { TaskDetailWorkbench } from '@/components/TaskDetailWorkbench';
 import { Card, CardContent } from '@/components/ui/card';
 import { Inbox, Trash2, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,17 +17,17 @@ export default function InboxPage() {
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const loadTasks = useCallback(async () => {
     try {
       await ensureDbReady();
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('数据读取超时')), 5000));
-      // 获取所有草稿任务
-      const allTasks = await Promise.race([
-        TaskService.getByStatus(TaskStatus.DRAFT),
-        timeoutPromise
-      ]) as Task[];
-      setTasks(allTasks);
+      const drafts = await TaskService.getByStatus(TaskStatus.DRAFT);
+      setTasks(drafts);
+      setSelectedTask(prev => {
+        if (!prev) return null;
+        return drafts.find((t: Task) => t.id === prev.id) || null;
+      });
     } catch (error: any) {
       console.error('加载任务失败:', error);
       setDbError(true);
@@ -98,10 +99,13 @@ export default function InboxPage() {
         ) : (
           <div className="grid gap-3">
             {tasks.map((task) => (
-              <Card key={task.id} className="border-gray-100 shadow-sm hover:shadow-md transition-shadow group">
+              <Card key={task.id} className="border-gray-100 shadow-sm hover:shadow-md transition-shadow group cursor-pointer hover:scale-[1.01]" onClick={() => setSelectedTask(task)}>
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="flex-1">
-                    <h3 className="font-medium text-gray-800">{task.title}</h3>
+                    <h3 className="font-medium text-gray-800 flex items-center gap-2">
+                      {task.title}
+                      {task.difficulty ? <span className="text-xs">{'⭐'.repeat(task.difficulty)}</span> : null}
+                    </h3>
                     {task.tags.length > 0 && (
                       <div className="flex gap-1.5 mt-2">
                         {task.tags.map(tag => (
@@ -119,7 +123,7 @@ export default function InboxPage() {
                       variant="ghost"
                       size="icon"
                       className="text-gray-400 hover:text-red-500 h-8 w-8"
-                      onClick={() => setTaskToDelete(task)}
+                      onClick={(e) => { e.stopPropagation(); setTaskToDelete(task); }}
                       title="删除草稿"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -128,7 +132,7 @@ export default function InboxPage() {
                       variant="default"
                       size="sm"
                       className="h-8 px-3 gap-1 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 font-medium"
-                      onClick={() => task.id && handleMoveToToday(task.id)}
+                      onClick={(e) => { e.stopPropagation(); task.id && handleMoveToToday(task.id); }}
                       title="排入今天"
                     >
                       <ArrowRight className="h-4 w-4" />
@@ -162,6 +166,17 @@ export default function InboxPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <TaskDetailWorkbench 
+        task={selectedTask} 
+        open={!!selectedTask} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedTask(null);
+            loadTasks();
+          }
+        }} 
+        onDataChanged={loadTasks} 
+      />
     </>
   );
 }

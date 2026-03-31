@@ -32,6 +32,12 @@ export class TaskService {
       date: input.date ?? today,
       created_at: now,
       updated_at: now,
+      description: input.description,
+      difficulty: input.difficulty,
+      confidence: input.confidence,
+      initial_estimated_duration: input.initial_estimated_duration,
+      comments: input.comments,
+      template_id: input.template_id,
     };
 
     const id = await db.tasks.add(task);
@@ -63,6 +69,13 @@ export class TaskService {
     const task = await db.tasks.get(id);
     if (!task) {
       throw new Error(`任务不存在: id=${id}`);
+    }
+
+    // 认知快照逻辑：如果修改了 est_time，并且之前没有备份过
+    if (changes.est_time !== undefined && changes.est_time !== task.est_time) {
+      if (task.initial_estimated_duration === undefined) {
+        changes.initial_estimated_duration = task.est_time;
+      }
     }
 
     await db.tasks.update(id, {

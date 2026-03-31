@@ -7,8 +7,8 @@ import { calculateDeviationRatio, formatDuration } from '@/lib/forecast-utils';
 import { ensureDbReady } from '@/lib/db';
 import { DbErrorScreen } from '@/components/DbErrorScreen';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { PieChart, Target, Clock, Zap, Tags, CalendarDays, Activity, AlertCircle } from 'lucide-react';
-import { PieChart as RPieChart, Pie, Cell, Legend, LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import { PieChart, Target, Clock, Zap, Tags, CalendarDays, Activity, AlertCircle, BarChart as LucideBarChart } from 'lucide-react';
+import { BarChart as RBarChart, Bar, CartesianGrid, Cell, LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 
 const TAG_COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#6366f1', '#14b8a6', '#f43f5e'];
 
@@ -19,7 +19,7 @@ export default function InsightsPage() {
   const [dayStats, setDayStats] = useState<DayStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(false);
-  const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'year'>('today');
+  const [dateRange, setDateRange] = useState<'today' | 'yesterday' | 'week' | 'month' | 'year'>('today');
   const [sortBy, setSortBy] = useState<'default' | 'actualTime' | 'deviation'>('default');
 
   useEffect(() => {
@@ -29,8 +29,12 @@ export default function InsightsPage() {
         await ensureDbReady();
         const now = new Date();
         const start = new Date();
+        let endStr = now.toISOString().slice(0, 10);
         if (dateRange === 'today') {
            // start relies on today
+        } else if (dateRange === 'yesterday') {
+           start.setDate(now.getDate() - 1);
+           endStr = start.toISOString().slice(0, 10);
         } else if (dateRange === 'week') {
            start.setDate(now.getDate() - 6);
         } else if (dateRange === 'month') {
@@ -40,7 +44,6 @@ export default function InsightsPage() {
         }
 
         const startStr = start.toISOString().slice(0, 10);
-        const endStr = now.toISOString().slice(0, 10);
 
         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('数据读取超时')), 5000));
         const [t, a, ts, ds] = await Promise.race([
@@ -97,11 +100,14 @@ export default function InsightsPage() {
 
   const isOverallGood = overallDeviation > 0 && overallDeviation <= 120; // 0-120% is acceptable
 
-  // Recharts Pie Chart Data
-  const pieData = tagStats.filter(t => t.totalTime > 0).map(t => ({
-    name: t.tag,
-    value: t.totalTime
-  }));
+  // Recharts Bar Chart Data (Sorted by duration descending)
+  const barData = tagStats
+    .filter(t => t.totalTime > 0)
+    .sort((a, b) => b.totalTime - a.totalTime)
+    .map(t => ({
+      name: t.tag,
+      value: t.totalTime
+    }));
 
   // Recharts Line Chart Data (Anchors)
   const formatHour = (iso?: string) => {
@@ -138,6 +144,7 @@ export default function InsightsPage() {
             onChange={(e) => setDateRange(e.target.value as any)}
           >
             <option value="today">今日</option>
+            <option value="yesterday">昨日</option>
             <option value="week">最近 7 天</option>
             <option value="month">最近 30 天</option>
             <option value="year">最近 1 年</option>
@@ -247,34 +254,33 @@ export default function InsightsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* 标签市场分布环形图 */}
-        <Card className="border-white shadow-sm">
+        {/* 标签时长排布横向柱状图 */}
+        <Card className="border-white shadow-sm flex flex-col">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-gray-800 flex items-center gap-2">
-              <PieChart className="w-4 h-4 text-purple-500" />
-              标签时长投入分布
+              <LucideBarChart className="w-4 h-4 text-purple-500" />
+              标签投入时长排行
             </CardTitle>
           </CardHeader>
-          <CardContent className="h-[250px] w-full pb-4">
-            {pieData.length > 0 ? (
+          <CardContent className="h-[250px] w-full pb-4 pr-6">
+            {barData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <RPieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {pieData.map((entry, index) => (
+                <RBarChart data={barData} layout="vertical" margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f3f4f6" />
+                  <XAxis type="number" hide />
+                  <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#4b5563', fontSize: 13, fontWeight: 500}} width={70} />
+                  <RechartsTooltip 
+                    cursor={{fill: '#f3f4f6'}}
+                    formatter={(value: any) => [formatDuration(Number(value)), '投入时长']}
+                    itemStyle={{fontWeight: 600}}
+                    labelStyle={{color: '#374151', fontWeight: 600, marginBottom: '4px'}} 
+                  />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24}>
+                    {barData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={TAG_COLORS[index % TAG_COLORS.length]} />
                     ))}
-                  </Pie>
-                  <RechartsTooltip formatter={(value: any) => formatDuration(Number(value))} />
-                  <Legend verticalAlign="bottom" height={36}/>
-                </RPieChart>
+                  </Bar>
+                </RBarChart>
               </ResponsiveContainer>
             ) : (
               <div className="w-full h-full flex justify-center items-center text-gray-400 text-sm">无标签数据</div>

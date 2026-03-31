@@ -92,6 +92,44 @@ describe('TaskService', () => {
         '任务不存在'
       );
     });
+
+    it('更改 est_time 且之前无初始预估时，应自动完成认知快照备份', async () => {
+      const id = await TaskService.create({ title: '快照测试', est_time: 25 });
+      let task = await TaskService.getById(id);
+      expect(task!.initial_estimated_duration).toBeUndefined();
+
+      await TaskService.update(id, { est_time: 40 });
+      
+      task = await TaskService.getById(id);
+      expect(task!.est_time).toBe(40);
+      expect(task!.initial_estimated_duration).toBe(25); // 存下了之前的预估时长
+
+      // 再次修改时长时，初始快照不应被覆盖
+      await TaskService.update(id, { est_time: 50 });
+      task = await TaskService.getById(id);
+      expect(task!.est_time).toBe(50);
+      expect(task!.initial_estimated_duration).toBe(25);
+    });
+
+    it('支持 Sprint 9 各扩展字段读写', async () => {
+      const id = await TaskService.create({ 
+        title: '拓展字段', 
+        description: '任务详情',
+        difficulty: 3,
+        confidence: true,
+        template_id: 'habits-123'
+      });
+      let task = await TaskService.getById(id);
+      
+      expect(task!.description).toBe('任务详情');
+      expect(task!.difficulty).toBe(3);
+      expect(task!.confidence).toBe(true);
+      expect(task!.template_id).toBe('habits-123');
+
+      await TaskService.update(id, { comments: '这是复盘' });
+      task = await TaskService.getById(id);
+      expect(task!.comments).toBe('这是复盘');
+    });
   });
 
   describe('delete', () => {
@@ -154,13 +192,13 @@ describe('TaskService', () => {
       ).rejects.toThrow('非法状态转换');
     });
 
-    it('COMPLETED → RUNNING 应抛错（终态不可转换）', async () => {
+    it('COMPLETED → RUNNING 应成功（支持重启任务）', async () => {
       const id = await TaskService.create({ title: '测试', status: TaskStatus.PENDING });
       await TaskService.updateStatus(id, TaskStatus.RUNNING);
       await TaskService.updateStatus(id, TaskStatus.COMPLETED);
-      await expect(
-        TaskService.updateStatus(id, TaskStatus.RUNNING)
-      ).rejects.toThrow('非法状态转换');
+      await TaskService.updateStatus(id, TaskStatus.RUNNING);
+      const updated = await TaskService.getById(id);
+      expect(updated?.status).toBe(TaskStatus.RUNNING);
     });
 
     it('EXPIRED 为终态不可转换', async () => {

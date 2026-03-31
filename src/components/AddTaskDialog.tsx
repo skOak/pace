@@ -34,6 +34,8 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
   const [isSchoolDone, setIsSchoolDone] = useState(false);
   const [tags, setTags] = useState<string>('');
   const [frequentTags, setFrequentTags] = useState<string[]>([]);
+  const [description, setDescription] = useState('');
+  const [showDescription, setShowDescription] = useState(false);
   const [loading, setLoading] = useState(false);
   const [smartBufferSuggestion, setSmartBufferSuggestion] = useState<string | null>(null);
   
@@ -109,6 +111,7 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
     if (!batchOpen) {
       setBatchSelectedTags([]);
       setTagInputText('');
+      setBatchText('');
     }
   }, [batchOpen]);
 
@@ -305,6 +308,7 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
 
       await TaskService.create({
         title: title.trim(),
+        description: description.trim() || undefined,
         est_time: isSchoolDone ? 0 : (parseInt(estTime, 10) || 0),
         act_time: isSchoolDone ? (parseInt(actTime, 10) || 0) : 0,
         tags: tagArray,
@@ -318,6 +322,8 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
       setActTime('15');
       setIsSchoolDone(false);
       setTags('');
+      setDescription('');
+      setShowDescription(false);
       setOpen(false);
 
       // 通知父组件刷新
@@ -564,6 +570,36 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
               </div>
             )}
           </div>
+
+          {/* 渐进式披露：详情（Markdown） */}
+          {!showDescription ? (
+            <button 
+              type="button" 
+              onClick={() => setShowDescription(true)}
+              className="flex items-center gap-1.5 text-sm text-blue-500 hover:text-blue-700 font-medium w-fit mt-2 group transition-all"
+            >
+              <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                 <PenLine className="w-3.5 h-3.5" />
+              </div>
+              添加任务指引或视频素材 (可选)
+            </button>
+          ) : (
+            <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-2 mt-2">
+              <Label htmlFor="description" className="flex items-center justify-between text-gray-700">
+                <span className="flex items-center gap-1.5"><PenLine className="w-4 h-4 text-blue-500" /> 指南与素材 (支持 Markdown)</span>
+                <button type="button" onClick={() => { setShowDescription(false); setDescription(''); }} className="text-xs text-gray-400 hover:text-red-500 font-medium">
+                  清空并收起
+                </button>
+              </Label>
+              <textarea
+                id="description"
+                className="flex min-h-[100px] max-h-[300px] w-full rounded-xl border border-input bg-blue-50/30 px-3 py-2 text-sm ring-offset-background placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 resize-y transition-shadow"
+                placeholder="例如：课本第15页阅读，或者粘贴 B 站/YouTube 学习视频链接..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>

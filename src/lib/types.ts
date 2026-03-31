@@ -28,7 +28,7 @@ export const VALID_STATUS_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
   [TaskStatus.PENDING]: [TaskStatus.RUNNING, TaskStatus.EXPIRED],
   [TaskStatus.RUNNING]: [TaskStatus.PAUSED, TaskStatus.COMPLETED],
   [TaskStatus.PAUSED]: [TaskStatus.RUNNING, TaskStatus.COMPLETED, TaskStatus.EXPIRED],
-  [TaskStatus.COMPLETED]: [],
+  [TaskStatus.COMPLETED]: [TaskStatus.PENDING, TaskStatus.RUNNING],
   [TaskStatus.EXPIRED]: [],
 };
 
@@ -54,6 +54,20 @@ export interface Task {
   created_at: string;
   /** 更新时间 (ISO 8601) */
   updated_at: string;
+  /** Markdown 描述/笔记 */
+  description?: string;
+  /** 难度星级 (1, 2, 3) */
+  difficulty?: number;
+  /** 信心指数 (true: 😎, false: 🤔) */
+  confidence?: boolean;
+  /** 首次设定的预估时长，作为快照不再更改 */
+  initial_estimated_duration?: number;
+  /** 评价/复盘内容 */
+  comments?: string;
+  /** 关联的习惯模板 ID */
+  template_id?: string;
+  /** 漏卡/跳过原因 (仅在 EXPIRED 状态时有意义) */
+  skip_reason?: 'external' | 'voluntary';
 }
 
 /** 创建任务时的输入参数（省略自动生成的字段） */
@@ -65,6 +79,12 @@ export interface CreateTaskInput {
   is_school_done?: boolean;
   date?: string;
   status?: TaskStatus;
+  description?: string;
+  difficulty?: number;
+  confidence?: boolean;
+  initial_estimated_duration?: number;
+  comments?: string;
+  template_id?: string;
 }
 
 /** 更新任务时的可选字段 */
@@ -90,4 +110,38 @@ export interface DailyAnchor {
   start_anchor?: string;
   /** 当日末次任务结束时间 (ISO 8601) */
   end_anchor?: string;
+}
+
+/** 习惯模板表接口 */
+export interface HabitTemplate {
+  /** UUID 主键 */
+  id: string;
+  /** 标题 */
+  title: string;
+  /** 默认预估时长（分钟） */
+  estimated_duration: number;
+  /** 标签 */
+  tags: string[];
+  /** 频率类型：Weekly 或 Monthly */
+  frequency_type: 'Weekly' | 'Monthly';
+  /** 触发规则，如 [1, 3, 5] 代表周一三五 */
+  frequency_rule: number[];
+  /** 结束重复类型：无、按日期、按次数 (Sprint 10 后续补充) */
+  end_type?: 'never' | 'date' | 'occurrences';
+  /** 设定的结束日期 YYYY-MM-DD */
+  end_date?: string;
+  /** 设定的结束次数 */
+  end_occurrences?: number;
+  /** 已经生成的次数计数器 */
+  generated_count?: number;
+  /** 模板状态：活跃、暂停、已归档 */
+  status: 'active' | 'paused' | 'archived';
+  /** 任务 Markdown 详情 (指引) */
+  description?: string;
+  /** 难度预估 (1-5) */
+  difficulty?: number;
+  /** 信心指数 (成竹在胸/需要思考) */
+  confidence?: boolean;
+  /** 创建时间 (ISO 8601) */
+  created_at: string;
 }
