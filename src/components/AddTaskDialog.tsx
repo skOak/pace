@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Camera, Image as ImageIcon, PenLine, ListPlus } from 'lucide-react';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { TaskStatus } from '@/lib/types';
+import { TaskStatus, type Goal } from '@/lib/types';
 import { TaskService } from '@/services/task-service';
 import { StatsService } from '@/services/stats-service';
 import { OcrService } from '@/services/ocr-service';
+import { GoalService } from '@/services/goal-service';
 import { ImageCropper } from '@/components/ImageCropper';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,9 +25,10 @@ import {
 interface AddTaskDialogProps {
   onTaskAdded?: () => void;
   defaultStatus?: TaskStatus;
+  defaultGoalId?: string;
 }
 
-export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING }: AddTaskDialogProps) {
+export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING, defaultGoalId }: AddTaskDialogProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [estTime, setEstTime] = useState<string>('25');
@@ -44,6 +46,10 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
   const [batchText, setBatchText] = useState('');
   const [batchSelectedTags, setBatchSelectedTags] = useState<string[]>([]);
   const [tagInputText, setTagInputText] = useState('');
+
+  // 关联目标状态
+  const [activeGoals, setActiveGoals] = useState<Goal[]>([]);
+  const [selectedGoalId, setSelectedGoalId] = useState<string>(defaultGoalId || '');
 
   // OCR 状态
   const [cropperOpen, setCropperOpen] = useState(false);
@@ -112,8 +118,9 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
       setBatchSelectedTags([]);
       setTagInputText('');
       setBatchText('');
+      setSelectedGoalId(defaultGoalId || '');
     }
-  }, [batchOpen]);
+  }, [batchOpen, defaultGoalId]);
 
   useEffect(() => {
     if (open || batchOpen) {
@@ -130,6 +137,7 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
           .slice(0, 8); // 取前8个最常用的
         setFrequentTags(sorted);
       });
+      GoalService.getActiveGoals().then(goals => setActiveGoals(goals));
     }
   }, [open, batchOpen]);
 
@@ -286,6 +294,8 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
           tags: taskTags,
           is_school_done: isSchoolDone,
           status: isSchoolDone ? TaskStatus.COMPLETED : defaultStatus,
+          goal_id: selectedGoalId || undefined,
+          is_session: !!selectedGoalId,
         });
       }
 
@@ -317,6 +327,8 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
         tags: tagArray,
         is_school_done: isSchoolDone,
         status: isSchoolDone ? TaskStatus.COMPLETED : defaultStatus,
+        goal_id: selectedGoalId || undefined,
+        is_session: !!selectedGoalId,
       });
 
       // 重置表单
@@ -327,6 +339,7 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
       setTags('');
       setDescription('');
       setShowDescription(false);
+      setSelectedGoalId(defaultGoalId || '');
       setOpen(false);
 
       // 通知父组件刷新
@@ -466,6 +479,23 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
                   ))}
                 </div>
               )}
+
+              {/* 批量关联目标 */}
+              {activeGoals.length > 0 && (
+                <div className="flex flex-col gap-1 mt-1">
+                  <span className="text-xs font-medium text-gray-500 ml-1">关联长线目标 (可选)</span>
+                  <select
+                    value={selectedGoalId}
+                    onChange={(e) => setSelectedGoalId(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="">-- 不关联 --</option>
+                    {activeGoals.map(g => (
+                      <option key={g.id} value={g.id}>{g.title}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             <textarea
@@ -573,6 +603,24 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
               </div>
             )}
           </div>
+
+          {/* 关联长线目标 */}
+          {activeGoals.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="goal_select">关联长线目标 (可选)</Label>
+              <select
+                id="goal_select"
+                value={selectedGoalId}
+                onChange={(e) => setSelectedGoalId(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">-- 不关联 --</option>
+                {activeGoals.map(g => (
+                  <option key={g.id} value={g.id}>{g.title}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* 渐进式披露：详情（Markdown） */}
           {!showDescription ? (

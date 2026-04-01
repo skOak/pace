@@ -38,6 +38,8 @@ export class TaskService {
       initial_estimated_duration: input.initial_estimated_duration,
       comments: input.comments,
       template_id: input.template_id,
+      goal_id: input.goal_id,
+      is_session: input.is_session,
     };
 
     const id = await db.tasks.add(task);

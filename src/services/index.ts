@@ -4,3 +4,4 @@
 export { TaskService } from './task-service';
 export { ExecutionLogService } from './execution-log-service';
 export { DailyAnchorService } from './daily-anchor-service';
+export { GoalService } from './goal-service';

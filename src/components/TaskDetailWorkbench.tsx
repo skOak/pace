@@ -9,8 +9,11 @@ import { LiveTimer } from '@/components/LiveTimer';
 import { MarkdownViewer } from '@/components/MarkdownViewer';
 import { VideoEmbed } from '@/components/VideoEmbed';
 import { TaskEditorSheet } from '@/components/TaskEditorSheet';
-import { PenLine, PlayCircle, PauseCircle, CheckCircle2, Flame, Maximize2 } from 'lucide-react';
+import { PenLine, PlayCircle, PauseCircle, CheckCircle2, Flame, Maximize2, Target } from 'lucide-react';
 import { formatDuration } from '@/lib/forecast-utils';
+import { GoalService } from '@/services/goal-service';
+import type { Goal } from '@/lib/types';
+import Link from 'next/link';
 
 interface TaskDetailWorkbenchProps {
   task: Task | null;
@@ -24,12 +27,21 @@ interface TaskDetailWorkbenchProps {
 export function TaskDetailWorkbench({ task, open, onOpenChange, onDataChanged, onRequestReopen, onRequestComplete }: TaskDetailWorkbenchProps) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [comments, setComments] = useState('');
+  const [goal, setGoal] = useState<Goal | null>(null);
   
   useEffect(() => {
     if (task) {
       setComments(task.comments || '');
     }
   }, [task]);
+
+  useEffect(() => {
+    if (task?.goal_id) {
+       GoalService.getById(task.goal_id).then(g => setGoal(g || null));
+    } else {
+       setGoal(null);
+    }
+  }, [task?.goal_id]);
 
   if (!task) return null;
 
@@ -194,6 +206,24 @@ export function TaskDetailWorkbench({ task, open, onOpenChange, onDataChanged, o
             <div className="w-full md:w-[55%] lg:w-[60%] bg-white flex flex-col h-full overflow-hidden shrink-0">
               <div className="flex-1 overflow-y-auto px-6 py-8 md:px-10 md:py-12 space-y-8 scroll-smooth relative">
                  
+                 {/* 专属长线目标入口 */}
+                 {goal && (
+                   <div className="flex items-center justify-between p-4 rounded-2xl border bg-gradient-to-r from-blue-50 to-indigo-50/50 border-blue-100/50 shadow-sm mb-4 animate-in fade-in duration-500">
+                     <div className="flex items-center gap-3">
+                       <div className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-inner shrink-0">
+                         <Target className="w-5 h-5" />
+                       </div>
+                       <div className="flex flex-col">
+                         <span className="text-xs text-blue-600/80 font-bold uppercase tracking-wider mb-0.5">此片段属于长线目标</span>
+                         <span className="text-base font-bold text-gray-900 leading-tight">{goal.title}</span>
+                       </div>
+                     </div>
+                     <Link href={`/goals/${goal.id}`} onClick={() => onOpenChange(false)} className="px-4 py-2 text-sm font-bold bg-white text-blue-600 rounded-xl shadow-sm border border-blue-100 hover:bg-blue-50 transition-colors shrink-0">
+                       进入目标主页
+                     </Link>
+                   </div>
+                 )}
+
                  {/* 首屏视频提取区 */}
                  <VideoEmbed text={task.description} />
                  

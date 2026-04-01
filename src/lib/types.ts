@@ -68,6 +68,10 @@ export interface Task {
   template_id?: string;
   /** 漏卡/跳过原因 (仅在 EXPIRED 状态时有意义) */
   skip_reason?: 'external' | 'voluntary';
+  /** 长线目标 ID (Sprint 11) */
+  goal_id?: string;
+  /** 是否为目标的执行片段 (Sprint 11) */
+  is_session?: boolean;
 }
 
 /** 创建任务时的输入参数（省略自动生成的字段） */
@@ -85,6 +89,8 @@ export interface CreateTaskInput {
   initial_estimated_duration?: number;
   comments?: string;
   template_id?: string;
+  goal_id?: string;
+  is_session?: boolean;
 }
 
 /** 更新任务时的可选字段 */
@@ -142,6 +148,51 @@ export interface HabitTemplate {
   difficulty?: number;
   /** 信心指数 (成竹在胸/需要思考) */
   confidence?: boolean;
+  /** 创建时间 (ISO 8601) */
+  created_at: string;
+}
+
+/** 目标状态枚举 */
+export enum GoalStatus {
+  ACTIVE = 'ACTIVE',
+  DONE = 'DONE',
+  ARCHIVED = 'ARCHIVED',
+}
+
+/** 长线目标主表接口 */
+export interface Goal {
+  /** UUID 主键 */
+  id: string;
+  /** 目标标题 */
+  title: string;
+  /** Markdown 内容/项目说明 */
+  description?: string;
+  /** 总预估分钟数 */
+  total_estimated_duration: number;
+  /** 截止日期 YYYY-MM-DD 或 ISO */
+  deadline?: string;
+  /** 难度星级 (1, 2, 3) */
+  difficulty?: number;
+  /** 自信度 (把握度) */
+  confidence?: boolean;
+  /** 当前状态 */
+  status: GoalStatus;
+  /** 创建时间 (ISO 8601) */
+  created_at: string;
+  /** 更新时间 (ISO 8601) */
+  updated_at?: string;
+}
+
+/** 目标评论表接口 */
+export interface GoalComment {
+  /** UUID 主键 */
+  id: string;
+  /** 关联的目标 ID */
+  goal_id: string;
+  /** 评论角色（孩子/家长） */
+  user_role: string;
+  /** 评论内容 */
+  content: string;
   /** 创建时间 (ISO 8601) */
   created_at: string;
 }

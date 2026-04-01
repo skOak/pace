@@ -5,7 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { TaskService } from '@/services/task-service';
-import { Task, TaskStatus } from '@/lib/types';
+import { GoalService } from '@/services/goal-service';
+import { Task, TaskStatus, type Goal } from '@/lib/types';
+import { Target } from 'lucide-react';
+import Link from 'next/link';
 
 interface TaskEditorSheetProps {
   task: Task | null;
@@ -23,6 +26,7 @@ export function TaskEditorSheet({ task, open, onOpenChange, onSaved }: TaskEdito
   const [confidence, setConfidence] = useState<boolean | undefined>(undefined);
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
+  const [goal, setGoal] = useState<Goal | null>(null);
 
   useEffect(() => {
     if (task && open) {
@@ -33,6 +37,12 @@ export function TaskEditorSheet({ task, open, onOpenChange, onSaved }: TaskEdito
       setDifficulty(task.difficulty || 0);
       setConfidence(task.confidence);
       setDescription(task.description || '');
+
+      if (task.goal_id) {
+        GoalService.getById(task.goal_id).then(g => setGoal(g || null));
+      } else {
+        setGoal(null);
+      }
     }
   }, [task, open]);
 
@@ -72,6 +82,23 @@ export function TaskEditorSheet({ task, open, onOpenChange, onSaved }: TaskEdito
         </SheetHeader>
         
         <div className="grid gap-5 py-6">
+          {goal && (
+             <div className="flex items-center justify-between p-3.5 rounded-2xl border bg-gradient-to-r from-blue-50 to-indigo-50/50 border-blue-100/50 shadow-sm">
+               <div className="flex items-center gap-3">
+                 <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-inner shrink-0">
+                   <Target className="w-4 h-4" />
+                 </div>
+                 <div className="flex flex-col">
+                   <span className="text-[10px] text-blue-600/80 font-bold uppercase tracking-wider mb-0.5">所属长线目标</span>
+                   <span className="text-sm font-semibold text-gray-900 leading-tight">{goal.title}</span>
+                 </div>
+               </div>
+               <Link href={`/goals/${goal.id}`} onClick={() => onOpenChange(false)} className="px-3 py-1.5 text-xs font-semibold bg-white text-blue-600 rounded-lg shadow-sm border border-blue-100 hover:bg-blue-50 transition-colors shrink-0">
+                 查看大目标视频
+               </Link>
+             </div>
+          )}
+
           <div className="flex flex-col gap-2">
             <Label className="text-gray-700">任务名称</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} className="bg-gray-50 border-gray-200 focus-visible:ring-blue-500" />

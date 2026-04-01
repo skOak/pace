@@ -23,7 +23,15 @@ export function MarkdownViewer({ content }: MarkdownViewerProps) {
           li: ({node, ...props}) => <li className="mb-1" {...props} />,
           a: ({node, ...props}) => {
             const href = props.href || '';
-            const isVideo = href.includes('bilibili.com/video/') || href.includes('youtube.com/watch') || href.includes('youtu.be/');
+            const isVideo = href.includes('bilibili.com/video/') || 
+                            href.includes('youtube.com/watch') || 
+                            href.includes('youtu.be/') || 
+                            href.includes('xiaohongshu.com/explore') || 
+                            href.includes('xhslink.com') ||
+                            href.includes('vimeo.com/') ||
+                            href.includes('zhihu.com/zvideo') ||
+                            href.includes('douyin.com/video') ||
+                            href.includes('v.douyin.com');
             if (isVideo) {
               return (
                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-slate-100/50 text-slate-400 rounded-md text-[11px] border border-slate-200 select-none cursor-not-allowed mx-1 align-middle" title="已自动提取至最上方专属播放器">
