@@ -376,7 +376,7 @@ export default function TodayPage() {
                       variant="outline" 
                       size="sm" 
                       className="h-8 border-blue-200 text-blue-700 hover:bg-blue-100"
-                      onClick={() => handlePauseTask(task)}
+                      onClick={(e) => handlePauseTask(task, e)}
                     >
                       <PauseCircle className="w-4 h-4 mr-1" />
                       暂停
@@ -384,7 +384,7 @@ export default function TodayPage() {
                     <Button 
                       size="sm" 
                       className="h-8 bg-blue-600 hover:bg-blue-700"
-                      onClick={() => handleCompleteTask(task)}
+                      onClick={(e) => handleCompleteTask(task, e)}
                     >
                       <CheckCircle2 className="w-4 h-4 mr-1" />
                       完成
