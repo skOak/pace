@@ -17,6 +17,21 @@
 - **超时截断 (`loadTasks`)**：通过 `Promise.race([... , timeoutPromise])`，强行给所有的数据库长查询勒上 5 秒的项圈。一旦超时绝生死循环，立即切断，抛出异常。
 - **抢救级降级全屏 UI (`DbErrorScreen.tsx`)**：异常抛出后，接管全屏，避免无限转圈。同时提供通过浏览器 API 直插底层格式化当前网站库（`window.indexedDB.deleteDatabase`）的专属物理恢复按钮，让卡死设备始终拥有“自我拯救”的后路。
 
+### 3. 被 Next.js 预加载背刺的正则 SyntaxError (Sprint 12 续集)
+这发生在后续加入“指南 (Handbook)”全局标签页后。虽然早先已经降级了 SWC 编译语法，但在加入主导航 `<Link href="/guide">` 后，原先完好的首页在 iOS 16.2 上再次陷入“加载今日节奏中...”的死锁，同时控制台隐蔽地报出：`Uncaught SyntaxError: Invalid regular expression: invalid group specifier name`。
+
+**根源追溯**：
+受惠于 Next.js 的激进 `Prefetch` 策略，首页只要渲染出导航，便会在后台静默下载子页面的代码块。而 `/guide` 中由于引入了 `remark-gfm` 插件来渲染 Markdown，该包底部的一个自动链接解析依赖使用了向后断言（Lookbehind: `(?<=...)`）这一较新的正则表达式。苹果迟至 iOS 16.4 才让 WebKit 引擎正式支持它。因此当 iOS 16.2 试着解析这块尚未运行的下载代码时，直接爆发原生级语法崩溃，导致全站所有后续的水合任务（Hydration）终止。
+
+**釜底抽薪**：
+在 SWC 无法转译第三方原生正则的局限下，我们果断从渲染器中剔除了非核心必须的 `remark-gfm` 扩展，使得包含炸弹的正则片段彻底从构建产物中蒸发。
+
+### 4. 数据库“时光倒流”引发的跨版本死锁
+由于在调试过程中曾发布了将 Dexie 数据库从版本 5 升至 6（新增 `statements` 表）的代码，由于不符需求随后进行了回滚。但对已经用该版本访问过的 iPad 真机而言，其底层 IndexedDB 已经被不可逆地拔高到了版本 6！
+网页代码一旦重置为版本 5 即形同请求“数据库降级”，由于 IndexedDB 原生拒绝任何降级操作，导致了 `UpgradeError`，`ensureDbReady()` 被永远阻断在超时熔断机制前，造成无限卡死。
+
+**空降保护**：在代码的 `db.ts` 里巧妙追平版本号 `this.version(6).stores({ statements: null })`，这样高版设备会因为命中同版本而免于降级崩溃，并且平滑地抹去了被放弃建立的无效废表。
+
 ## ✅ 验收与善后 (Validation & Cleanup)
 
 1. 在解决问题后，协助用户清理了 `.next` 缓存以彻底冲刷僵死内存。

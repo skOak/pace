@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Home, Inbox, Repeat } from 'lucide-react';
+import { Home, Inbox, Repeat, BookOpen } from 'lucide-react';
 
 export function MobileNav() {
   return (
@@ -15,6 +15,10 @@ export function MobileNav() {
       <Link href="/habits" className="flex flex-col items-center gap-1 p-2 text-gray-500 hover:text-blue-600">
         <Repeat className="h-6 w-6" />
         <span className="text-[10px] font-medium">习惯</span>
+      </Link>
+      <Link href="/guide" className="flex flex-col items-center gap-1 p-2 text-gray-500 hover:text-blue-600">
+        <BookOpen className="h-6 w-6" />
+        <span className="text-[10px] font-medium">指南</span>
       </Link>
     </nav>
   );

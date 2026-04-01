@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { Home, Inbox, Settings, PieChart, Repeat, Target } from 'lucide-react';
+import { Home, Inbox, Settings, PieChart, Repeat, Target, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TaskService } from '@/services/task-service';
 import { SettingsService } from '@/services/settings-service';
@@ -16,6 +16,7 @@ const navItems = [
   { name: '习惯', href: '/habits', icon: Repeat },
   { name: '洞察', href: '/insights', icon: PieChart },
   { name: '设置', href: '/settings', icon: Settings },
+  { name: '指南', href: '/guide', icon: BookOpen },
 ];
 
 export function Sidebar() {

@@ -62,6 +62,15 @@ export class PaceDB extends Dexie {
       goal_comments: 'id, goal_id',
       tasks: '++id, status, date, is_school_done, template_id, goal_id',
     });
+
+    // 解决因代码回滚导致的 iOS Safari Dexie 降级导致数据库打不开的死锁 Bug
+    // 将版本设为 6 并把错误建立的 statements 置为 null 从而将其抹除
+    this.version(6).stores({
+      statements: null,
+      goals: 'id, status',
+      goal_comments: 'id, goal_id',
+      tasks: '++id, status, date, is_school_done, template_id, goal_id',
+    });
   }
 }
 
