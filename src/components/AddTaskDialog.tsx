@@ -240,10 +240,13 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING 
         let title = rawTitle;
 
         // 解析 [✓...] 或 ✓、√ 或 校内完成 (支持紧贴文本如 签字√)
-        const schoolDoneMatch = title.match(/\[(✓|v|√|✅|☑️|✔️|✔|校内完成).*?\]/i) || title.match(/(✓|√|✅|☑️|✔️|✔|校内完成)/) || title.match(/(?:^|\s)v(?:\s|$)/i);
+        const schoolDoneRegex = /\[?(?:✓|v|√|✅|☑|☑️|✔️|✔|校内完成)\]?/i;
+        const schoolDoneMatch = title.match(schoolDoneRegex) || title.match(/(?:^|\s)v(?:\s|$)/i);
         if (schoolDoneMatch) {
           isSchoolDone = true;
-          title = title.replace(schoolDoneMatch[0], '');
+          // 全局移除所有相关符号，并特别处理可能残留的不可见 variation selector (\uFE0F)
+          title = title.replace(/\[?(?:✓|√|✅|☑|☑️|✔️|✔|校内完成)\]?/gi, '').replace(/\uFE0F/g, '');
+          title = title.replace(/(?:^|\s)v(?:\s|$)/gi, ' ');
         }
 
         // 解析 [xxm] 或 xxm 或 xx分钟
