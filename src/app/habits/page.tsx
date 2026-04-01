@@ -16,7 +16,7 @@ export default function HabitsPage() {
   const [habits, setHabits] = useState<HabitTemplate[]>([]);
   const [todaysTasks, setTodaysTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Dialog State
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState<HabitTemplate | null>(null);
@@ -29,7 +29,7 @@ export default function HabitsPage() {
       const allHabits = await HabitService.getAll();
       const today = new Date().toISOString().slice(0, 10);
       const tasks = await TaskService.getByDate(today);
-      
+
       setHabits(allHabits.sort((a, b) => {
         const order = { active: 1, paused: 2, archived: 3 };
         if (a.status !== b.status) return order[a.status] - order[b.status];
@@ -62,12 +62,12 @@ export default function HabitsPage() {
     // 检查这个刚刚建好/改好的习惯是否恰好符合今天，且今天还没生成，符合则自动帮他省去手动点的麻烦
     const template = await HabitService.getById(habitId);
     if (template && template.status === 'active' && HabitService.shouldGenerateToday(template, new Date())) {
-       const today = new Date().toISOString().slice(0, 10);
-       const tasks = await TaskService.getByDate(today);
-       const alreadyGenerated = tasks.some(t => t.template_id === template.id);
-       if (!alreadyGenerated) {
-         await HabitService.generateTaskForDay(template, today);
-       }
+      const today = new Date().toISOString().slice(0, 10);
+      const tasks = await TaskService.getByDate(today);
+      const alreadyGenerated = tasks.some(t => t.template_id === template.id);
+      if (!alreadyGenerated) {
+        await HabitService.generateTaskForDay(template, today);
+      }
     }
     loadData();
   };
@@ -86,13 +86,13 @@ export default function HabitsPage() {
     if (!skipHabit) return;
     const generatedTask = todaysTasks.find(t => t.template_id === skipHabit.id);
     if (generatedTask && generatedTask.id) {
-       // 更新为已过期并附加漏卡原因
-       // 由于 TypeScript 定义可能未导出所有需要的状态对象，我们通过 4(EXPIRED) 假定
-       await TaskService.update(generatedTask.id, { 
-         status: 4 as any, // TaskStatus.EXPIRED
-         skip_reason: reason 
-       });
-       loadData();
+      // 更新为已过期并附加漏卡原因
+      // 由于 TypeScript 定义可能未导出所有需要的状态对象，我们通过 4(EXPIRED) 假定
+      await TaskService.update(generatedTask.id, {
+        status: 4 as any, // TaskStatus.EXPIRED
+        skip_reason: reason
+      });
+      loadData();
     }
     setSkipHabit(null);
   };
@@ -137,27 +137,30 @@ export default function HabitsPage() {
           habits.map((habit) => {
             const hasGeneratedTask = todaysTasks.some(t => t.template_id === habit.id);
             const isRestDayToday = !HabitService.shouldGenerateToday(habit, todayDate);
-            
+
             // 状态推断
             let status = '已暂停';
             let badgeClass = 'bg-gray-100 text-gray-500';
-            
+
             if (habit.status === 'archived') {
-               status = '已归档';
-               badgeClass = 'bg-gray-200 text-gray-500';
+              status = '已归档';
+              badgeClass = 'bg-gray-200 text-gray-500';
             } else if (habit.status === 'active') {
               if (hasGeneratedTask) {
                 // 如果今天已经有打卡任务了，我们需要判断它是否还没完成/过期
                 const t = todaysTasks.find(task => task.template_id === habit.id);
                 if (t && t.status === TaskStatus.EXPIRED) {
-                   status = '已跳过';
-                   badgeClass = 'bg-gray-100 text-gray-500';
+                  status = '已跳过';
+                  badgeClass = 'bg-gray-100 text-gray-500';
                 } else if (t && t.status === TaskStatus.COMPLETED) {
-                   status = '已打卡';
-                   badgeClass = 'bg-emerald-100 text-emerald-700';
+                  status = '已打卡';
+                  badgeClass = 'bg-emerald-100 text-emerald-700';
+                } else if (t && (t.status === TaskStatus.RUNNING || t.status === TaskStatus.PAUSED)) {
+                  status = '进行中';
+                  badgeClass = 'bg-amber-100 text-amber-700';
                 } else {
-                   status = '已排期';
-                   badgeClass = 'bg-blue-100 text-blue-700';
+                  status = '待打卡';
+                  badgeClass = 'bg-blue-100 text-blue-700';
                 }
               } else if (isRestDayToday) {
                 status = '休息日';
@@ -193,7 +196,7 @@ export default function HabitsPage() {
                         <span key={t} className="text-[10px] text-gray-400 bg-gray-50 border border-gray-100 px-1.5 py-0.5 rounded-sm truncate max-w-[80px]">#{t}</span>
                       ))}
                     </div>
-                    
+
                     <div className="flex items-center gap-4 text-xs text-gray-500 font-medium">
                       <span className="flex items-center gap-1">
                         <CalendarCheck2 className="w-3.5 h-3.5 text-gray-400" />
@@ -208,7 +211,7 @@ export default function HabitsPage() {
                   {/* 右侧操作 */}
                   <div className="flex items-center gap-2 w-full sm:w-auto justify-end mt-2 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-0 border-gray-100">
                     {/* 根据状态提供快捷按钮 */}
-                    {status === '已排期' && typeof todaysTasks.find(t => t.template_id === habit.id)?.id !== 'undefined' && (
+                    {status === '待打卡' && typeof todaysTasks.find(t => t.template_id === habit.id)?.id !== 'undefined' && (
                       <Button variant="ghost" size="sm" onClick={() => handleSkipToday(habit)} className="h-8 text-gray-500 hover:text-orange-600 hover:bg-orange-50 mr-1">
                         今日跳过
                       </Button>
@@ -219,15 +222,15 @@ export default function HabitsPage() {
                         加入今天
                       </Button>
                     ) : null}
-                    
-                    
+
+
                     {habit.status !== 'archived' && (
                       <Button variant="outline" size="sm" onClick={() => handleEdit(habit)} className="h-8 md:px-3 text-gray-500 hover:text-blue-600 border-gray-200">
                         <Edit3 className="w-3.5 h-3.5 mr-1 hidden sm:inline-block" />
                         修改
                       </Button>
                     )}
-                    
+
                     <Button variant="ghost" size="sm" onClick={() => setInsightHabit(habit)} className="h-8 md:px-3 text-blue-500 hover:text-blue-700 hover:bg-blue-50 border-gray-200">
                       <TrendingUp className="w-3.5 h-3.5 mr-0 sm:mr-1" />
                       <span className="hidden sm:inline-block">洞察</span>
@@ -268,7 +271,7 @@ export default function HabitsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       <HabitInsightSheet
         open={!!insightHabit}
         onOpenChange={(open) => !open && setInsightHabit(null)}
