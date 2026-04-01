@@ -104,7 +104,7 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING,
       e.preventDefault();
       const val = tagInputText.trim().replace(/^#/, '');
       if (val) {
-        const newTags = val.split(/[,，]+/).map(t => t.trim().replace(/^#/, '')).filter(Boolean);
+        const newTags = val.split(/[,，\s;；]+/).map(t => t.trim().replace(/^#/, '')).filter(Boolean);
         setBatchSelectedTags(prev => Array.from(new Set([...prev, ...newTags])));
       }
       setTagInputText('');
@@ -147,7 +147,7 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING,
        setSmartBufferSuggestion(null);
        return;
     }
-    const currentTags = tags.split(',').map(t => t.trim()).filter(Boolean);
+    const currentTags = tags.split(/[,，\s;；]+/).map(t => t.trim()).filter(Boolean);
     if (currentTags.length === 0) {
        setSmartBufferSuggestion(null);
        return;
@@ -172,7 +172,7 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING,
   }, [tags, open]);
 
   const handleTagClick = (t: string) => {
-    const currentTags = tags.split(',').map(s => s.trim()).filter(Boolean);
+    const currentTags = tags.split(/[,，\s;；]+/).map(s => s.trim()).filter(Boolean);
     if (!currentTags.includes(t)) {
        setTags(currentTags.length > 0 ? `${tags}, ${t}` : t);
     }
@@ -268,7 +268,7 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING,
         const tagMatch = title.match(/\[#(.*?)\]/) || title.match(/#([^\s,，]+(?:[,，]\s*[^\s,，]+)*)/);
         if (tagMatch) {
           const tagStr = tagMatch[1] || tagMatch[2];
-          taskTags = tagStr.split(/[,，]+/).map(t => t.trim()).filter(Boolean);
+          taskTags = tagStr.split(/[,，\s;；]+/).map(t => t.trim()).filter(Boolean);
           title = title.replace(tagMatch[0], '');
         }
 
@@ -315,7 +315,7 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING,
     setLoading(true);
     try {
       const tagArray = tags
-        .split(',')
+        .split(/[,，\s;；]+/)
         .map((t) => t.trim())
         .filter(Boolean);
 
@@ -575,7 +575,7 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING,
             </div>
           )}
           <div className="flex flex-col gap-2">
-            <Label htmlFor="tags">标签（逗号分隔）</Label>
+            <Label htmlFor="tags">标签（逗号/空格/分号分隔）</Label>
             <Input
               id="tags"
               value={tags}

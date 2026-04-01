@@ -129,7 +129,7 @@ export function HabitEditorDialog({ open, onOpenChange, habit, onSave }: HabitEd
 
     setLoading(true);
     try {
-      const tagArray = tags.split(',').map(t => t.trim()).filter(Boolean);
+      const tagArray = tags.split(/[,，\s;；]+/).map(t => t.trim()).filter(Boolean);
       const estTimeNum = parseInt(estTime, 10) || 25;
       
       const habitData = {

@@ -54,7 +54,7 @@ export function TaskEditorSheet({ task, open, onOpenChange, onSaved }: TaskEdito
         title: title.trim(),
         est_time: isSchoolDone ? 0 : (parseInt(estTime, 10) || 0),
         is_school_done: isSchoolDone,
-        tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+        tags: tags.split(/[,，\s;；]+/).map(t => t.trim()).filter(Boolean),
         difficulty: difficulty || undefined,
         confidence: confidence,
         description: description.trim(),
@@ -140,8 +140,8 @@ export function TaskEditorSheet({ task, open, onOpenChange, onSaved }: TaskEdito
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label className="text-gray-700">标签（逗号分隔）</Label>
+          <div className="space-y-2">
+            <Label className="text-gray-700">标签（逗号/空格/分号分隔）</Label>
             <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="数学, 作业" className="bg-gray-50 border-gray-200" />
           </div>
 
