@@ -51,6 +51,12 @@ export class ExecutionLogService {
     return db.execution_logs.where('taskId').equals(taskId).toArray();
   }
 
+  /** 获取一组任务的所有执行片段 */
+  static async getByTaskIds(taskIds: number[]): Promise<ExecutionLog[]> {
+    if (!taskIds.length) return [];
+    return db.execution_logs.where('taskId').anyOf(taskIds).toArray();
+  }
+
   /**
    * 汇总某任务的总实际用时（分钟）
    * 仅统计已结束（有 endTime）的片段
