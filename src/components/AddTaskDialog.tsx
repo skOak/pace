@@ -12,6 +12,7 @@ import { ImageCropper } from '@/components/ImageCropper';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import {
   Dialog,
   DialogContent,
@@ -642,12 +643,12 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING,
                   清空并收起
                 </button>
               </Label>
-              <textarea
+              <MarkdownEditor
                 id="description"
-                className="flex min-h-[100px] max-h-[300px] w-full rounded-xl border border-input bg-blue-50/30 px-3 py-2 text-sm ring-offset-background placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 resize-y transition-shadow"
-                placeholder="例如：课本第15页阅读，或者粘贴 B 站/YouTube 学习视频链接..."
+                className="bg-blue-50/30"
+                placeholder="例如：课本第15页阅读，或者粘贴学习视频链接... 随时点击下方上传附件。"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onValueChange={setDescription}
               />
             </div>
           )}

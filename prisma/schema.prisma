@@ -15,6 +15,7 @@ model User {
   role           String   @default("USER") // USER, ASSISTANT, SUPER_ADMIN
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
+  storage_usage  Int      @default(0) // 以字节为单位的存储用量
 
   tasks          Task[]
   executionLogs  ExecutionLog[]

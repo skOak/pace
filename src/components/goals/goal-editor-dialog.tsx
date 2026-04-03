@@ -5,6 +5,7 @@ import { Target, PenLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import {
   Dialog,
   DialogContent,
@@ -192,12 +193,12 @@ export function GoalEditorDialog({ open, onOpenChange, onGoalSaved, goal }: Goal
               <PenLine className="w-4 h-4 text-blue-500" />
               项目说明与素材 (支持 Markdown)
             </Label>
-            <textarea
+            <MarkdownEditor
               id="goal_description"
-              className="flex min-h-[100px] max-h-[250px] w-full rounded-xl border border-input bg-blue-50/20 px-3 py-2 text-sm ring-offset-background placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 resize-y"
-              placeholder="详细的行动指南、参考资料链接、视频嵌入代码等..."
+              className="bg-blue-50/20"
+              placeholder="详细的行动指南、参考资料链接、视频嵌入代码等，随时可点击下方按钮上传附件..."
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onValueChange={setDescription}
             />
           </div>
         </div>

@@ -3,7 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { TaskService } from '@/services/task-service';
 import { GoalService } from '@/services/goal-service';
 import { Task, TaskStatus, type Goal } from '@/lib/types';
@@ -194,11 +194,11 @@ export function TaskEditorSheet({ task, open, onOpenChange, onSaved }: TaskEdito
               <span>任务指引或富文本</span>
               <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-mono">Markdown</span>
             </Label>
-            <Textarea 
+            <MarkdownEditor
               value={description} 
-              onChange={(e) => setDescription(e.target.value)} 
-              className="min-h-[160px] resize-y bg-gray-50 border-gray-200 focus-visible:ring-blue-500 font-mono text-sm leading-relaxed"
-              placeholder="# 步骤 1\n\n可以粘贴 markdown 或者 B 站、YouTube 等外链，保存后工作台会自动解析呈现。\n"
+              onValueChange={setDescription} 
+              className="font-mono text-sm leading-relaxed bg-white"
+              placeholder="# 步骤 1\n\n可以粘贴 markdown 或者 B 站、YouTube 等外链，随时可点击下方按钮上传附件。\n"
             />
           </div>
 

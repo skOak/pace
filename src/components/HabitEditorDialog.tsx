@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { PenLine, Trash2, Star, StarHalf } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import {
   Dialog,
   DialogContent,
@@ -401,12 +402,12 @@ export function HabitEditorDialog({ open, onOpenChange, habit, onSave }: HabitEd
                   清空并收起
                 </button>
               </Label>
-              <textarea
+              <MarkdownEditor
                 id="description"
-                className="flex min-h-[80px] w-full rounded-xl border border-input bg-blue-50/30 px-3 py-2 text-sm ring-offset-background placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 resize-y transition-shadow"
-                placeholder="例如：每日打卡动作要点，支持贴入 B 站视频链接..."
+                className="bg-blue-50/30"
+                placeholder="例如：每日打卡动作要点，支持贴入 B 站视频链接、随时可点击下方按钮上传附件..."
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onValueChange={setDescription}
               />
             </div>
           )}
