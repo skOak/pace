@@ -1,0 +1,17 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: pace-postgres
+    environment:
+      POSTGRES_USER: pace_user
+      POSTGRES_PASSWORD: pace_password
+      POSTGRES_DB: pace_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pace_pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  pace_pgdata:

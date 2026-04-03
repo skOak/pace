@@ -10,8 +10,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Download, Upload, AlertTriangle, KeyRound, CheckCircle2, UserCircle, Image as ImageIcon } from 'lucide-react';
 import { AvatarCropper } from '@/components/AvatarCropper';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { useAuth } from '@/components/providers/AuthProvider';
 
 export default function SettingsPage() {
+  const { user } = useAuth();
   const [importing, setImporting] = useState(false);
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -22,7 +24,7 @@ export default function SettingsPage() {
   const [profileAvatar, setProfileAvatar] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [saveProfileSuccess, setSaveProfileSuccess] = useState(false);
-  
+
   // Cropper 状态
   const [cropperOpen, setCropperOpen] = useState(false);
   const [cropperImageUrl, setCropperImageUrl] = useState('');
@@ -56,6 +58,16 @@ export default function SettingsPage() {
       await SettingsService.setProfile(profileName, profileAvatar);
       // 派发自定义全局事件，使得 Sidebar 能够立刻监听到最新的资料并刷新
       window.dispatchEvent(new Event('pace_profile_updated'));
+
+      // 如果当前是登录状态，执行上行链路同步：将最新资料推送到云端数据库
+      if (user) {
+        await fetch('/api/auth/me', {
+          method: 'PATCH',
+          body: JSON.stringify({ nickname: profileName, avatar: profileAvatar }),
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
       setSaveProfileSuccess(true);
       setTimeout(() => setSaveProfileSuccess(false), 3000);
     } catch (e) {
@@ -75,7 +87,7 @@ export default function SettingsPage() {
     }
     e.target.value = '';
   };
-  
+
   const handleCropSave = (base64Image: string) => {
     setProfileAvatar(base64Image);
     setCropperOpen(false);
@@ -186,7 +198,7 @@ export default function SettingsPage() {
             <div className="flex flex-col sm:flex-row gap-6 items-start">
               {/* 头像区域 */}
               <div className="flex flex-col items-center gap-3 w-full sm:w-auto">
-                <div 
+                <div
                   className="w-24 h-24 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden relative group cursor-pointer hover:border-indigo-400 transition-colors"
                   onClick={() => avatarInputRef.current?.click()}
                 >
@@ -196,7 +208,7 @@ export default function SettingsPage() {
                     <ImageIcon className="w-8 h-8 text-gray-400 group-hover:text-indigo-400 transition-colors" />
                   )}
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                     <span className="text-white text-xs font-medium">更换</span>
+                    <span className="text-white text-xs font-medium">更换</span>
                   </div>
                 </div>
                 <input
@@ -219,6 +231,11 @@ export default function SettingsPage() {
                   onChange={(e) => setProfileName(e.target.value)}
                   className="max-w-md"
                 />
+                {user?.phone && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    当前云端账号: {user.phone}
+                  </p>
+                )}
               </div>
             </div>
           </CardContent>
@@ -247,7 +264,7 @@ export default function SettingsPage() {
                 <Download className="w-4 h-4 mr-2" />
                 导出数据备份
               </Button>
-              
+
               <div className="flex-1">
                 <input
                   type="file"
@@ -256,9 +273,9 @@ export default function SettingsPage() {
                   ref={fileInputRef}
                   onChange={handleFileChange}
                 />
-                <Button 
-                  variant="outline" 
-                  onClick={() => fileInputRef.current?.click()} 
+                <Button
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
                   className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 h-10"
                   disabled={importing}
                 >
@@ -337,8 +354,8 @@ export default function SettingsPage() {
                 <h4 className="font-medium text-gray-900">清空所有记录</h4>
                 <p className="text-sm text-gray-500 mt-1">这会永久删除所有任务、专注历史和统计洞察数据，恢复为初始状态。</p>
               </div>
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 onClick={() => setConfirmClearOpen(true)}
               >
                 清空数据
@@ -348,11 +365,11 @@ export default function SettingsPage() {
         </Card>
       </div>
 
-      <AvatarCropper 
-        open={cropperOpen} 
-        onOpenChange={setCropperOpen} 
-        imageUrl={cropperImageUrl} 
-        onCropSave={handleCropSave} 
+      <AvatarCropper
+        open={cropperOpen}
+        onOpenChange={setCropperOpen}
+        imageUrl={cropperImageUrl}
+        onCropSave={handleCropSave}
       />
 
       <ConfirmDialog

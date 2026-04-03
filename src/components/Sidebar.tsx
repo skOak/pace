@@ -8,6 +8,11 @@ import { cn } from '@/lib/utils';
 import { TaskService } from '@/services/task-service';
 import { SettingsService } from '@/services/settings-service';
 import { TaskStatus } from '@/lib/types';
+import { useAuth } from '@/components/providers/AuthProvider';
+import { LoginHandoverDialog } from './auth/LoginHandoverDialog';
+import { Cloud, WifiOff, LogOut } from 'lucide-react';
+import { db } from '@/lib/db';
+import { ConfirmDialog } from './ConfirmDialog';
 
 const navItems = [
   { name: '今天', href: '/', icon: Home },
@@ -21,6 +26,9 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { status, user, logout } = useAuth();
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [completedRatio, setCompletedRatio] = useState(0);
   const [profileName, setProfileName] = useState('');
   const [profileAvatar, setProfileAvatar] = useState('');
@@ -68,18 +76,57 @@ export function Sidebar() {
     };
   }, []);
 
+  const handleLogout = async () => {
+    await logout();
+    await db.delete(); // Hard delete IDB completely
+    window.location.reload();
+  };
+
   return (
     <aside className="fixed inset-y-0 left-0 z-10 hidden w-64 md:w-72 flex-col border-r bg-background/80 backdrop-blur-xl md:flex shadow-sm">
-      <div className="flex h-16 items-center px-6 border-b gap-3">
-        {profileAvatar ? (
-          <img src={profileAvatar} alt="Avatar" className="w-8 h-8 rounded-full border border-gray-200 object-cover shrink-0" />
-        ) : (
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-teal-400 shrink-0" />
-        )}
-        <h1 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent line-clamp-1">
-          {profileName || 'Pace'}
-        </h1>
+      <div className="flex flex-col px-6 py-4 border-b gap-3">
+        <div className="flex h-12 items-center gap-3">
+          {user?.avatar || profileAvatar ? (
+            <img src={user?.avatar || profileAvatar} alt="Avatar" className="w-8 h-8 rounded-full border border-gray-200 object-cover shrink-0" />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-teal-400 shrink-0" />
+          )}
+          <h1 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent line-clamp-1 flex-1">
+            {profileName || user?.nickname || 'Pace'}
+          </h1>
+        </div>
+
+        {/* Auth Status Check & Handover */}
+        <div className="flex items-center justify-between bg-gray-100 rounded-lg p-2 text-xs font-medium">
+          {status === 'loggedIn' ? (
+            <div className="flex items-center gap-1.5 text-green-600">
+               <Cloud className="w-3.5 h-3.5" /> 云端同步 ({user?.role === 'ASSISTANT' ? '协助' : '标准'})
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-gray-500">
+               <WifiOff className="w-3.5 h-3.5" /> 纯离线模式
+            </div>
+          )}
+          
+          {status === 'loggedIn' ? (
+             <button onClick={() => setLogoutConfirmOpen(true)} className="text-gray-400 hover:text-red-500 transition-colors" title="注销"><LogOut className="w-3.5 h-3.5"/></button>
+          ) : (
+             <button onClick={() => setLoginOpen(true)} className="text-blue-500 hover:text-blue-600 transition-colors px-1 py-0.5">云接管</button>
+          )}
+        </div>
       </div>
+      
+      <LoginHandoverDialog open={loginOpen} onOpenChange={setLoginOpen} />
+      <ConfirmDialog 
+        open={logoutConfirmOpen} 
+        onOpenChange={setLogoutConfirmOpen}
+        title="确认注销？"
+        description="注销账号将会清空当前本地的所有已同步离线缓存并退回纯离线模式，确认退出？"
+        confirmText="注销并清空"
+        isDestructive={true}
+        onConfirm={handleLogout}
+      />
+
       <nav className="flex-1 space-y-2 p-4">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
