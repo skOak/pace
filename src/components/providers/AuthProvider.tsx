@@ -43,8 +43,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                await SettingsService.setProfile(data.user.nickname || '', data.user.avatar || '');
                window.dispatchEvent(new Event('pace_profile_updated'));
             }
+
+            // If Dexie is empty (e.g. just logged in or new device), pull from cloud
+            const { db } = await import('@/lib/db');
+            const { SyncService } = await import('@/lib/sync-service');
+            const taskCount = await db.tasks.count();
+            if (taskCount === 0) {
+              const pullRes = await fetch('/api/sync/pull-all');
+              if (pullRes.ok) {
+                 SyncService.setPullingState(true);
+                 try {
+                   const { data: pullData } = await pullRes.json();
+                   await db.transaction('rw', 
+                     [db.tasks, db.execution_logs, db.daily_anchors, db.habit_templates, db.goals, db.goal_comments], 
+                     async () => {
+                       if (pullData.tasks?.length) await db.tasks.bulkPut(pullData.tasks);
+                       if (pullData.execution_logs?.length) await db.execution_logs.bulkPut(pullData.execution_logs);
+                       if (pullData.daily_anchors?.length) await db.daily_anchors.bulkPut(pullData.daily_anchors);
+                       if (pullData.habit_templates?.length) await db.habit_templates.bulkPut(pullData.habit_templates);
+                       if (pullData.goals?.length) await db.goals.bulkPut(pullData.goals);
+                       if (pullData.goal_comments?.length) await db.goal_comments.bulkPut(pullData.goal_comments);
+                   });
+                   console.log("已成功从云端拉取并恢复所有数据到本地 Dexie");
+                 } finally {
+                   SyncService.setPullingState(false);
+                 }
+              }
+            }
           } catch (e) {
-            console.error('Downward profile sync failed', e)
+            console.error('Downward profile or data sync failed', e)
           }
 
           return
@@ -66,6 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    import('@/lib/sync-service').then(m => m.SyncService.bootstrapSyncHooks());
     refreshAuth()
   }, [])
 

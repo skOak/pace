@@ -16,5 +16,125 @@ model User {
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
 
+  tasks          Task[]
+  executionLogs  ExecutionLog[]
+  dailyAnchors   DailyAnchor[]
+  habitTemplates HabitTemplate[]
+  goals          Goal[]
+
   @@map("users")
 }
+
+model Task {
+  id                         Int      @id @default(autoincrement())
+  local_id                   Int
+  title                      String
+  est_time                   Int
+  act_time                   Int
+  status                     String
+  tags                       String[]
+  is_school_done             Boolean
+  date                       String
+  created_at                 DateTime
+  updated_at                 DateTime
+  description                String?
+  difficulty                 Int?
+  confidence                 Boolean?
+  initial_estimated_duration Int?
+  comments                   String?
+  template_id                String?
+  skip_reason                String?
+  goal_id                    String?
+  is_session                 Boolean?
+
+  userId                     String
+  user                       User     @relation(fields: [userId], references: [uid], onDelete: Cascade)
+  
+  logs                       ExecutionLog[]
+
+  @@unique([userId, local_id])
+  @@map("tasks")
+}
+
+model ExecutionLog {
+  id        Int      @id @default(autoincrement())
+  local_id  Int
+  taskId    Int
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  startTime DateTime 
+  endTime   DateTime?
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [uid], onDelete: Cascade)
+
+  @@unique([userId, local_id])
+  @@map("execution_logs")
+}
+
+model DailyAnchor {
+  id           Int      @id @default(autoincrement())
+  date         String   // YYYY-MM-DD
+  start_anchor DateTime?
+  end_anchor   DateTime?
+
+  userId       String
+  user         User     @relation(fields: [userId], references: [uid], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@map("daily_anchors")
+}
+
+model HabitTemplate {
+  id                 String   @id @default(uuid())
+  title              String
+  estimated_duration Int
+  tags               String[]
+  frequency_type     String
+  frequency_rule     Int[]
+  end_type           String?
+  end_date           String?
+  end_occurrences    Int?
+  generated_count    Int?
+  status             String
+  description        String?
+  difficulty         Int?
+  confidence         Boolean?
+  created_at         DateTime
+
+  userId             String
+  user               User     @relation(fields: [userId], references: [uid], onDelete: Cascade)
+
+  @@map("habit_templates")
+}
+
+model Goal {
+  id                       String   @id @default(uuid())
+  title                    String
+  description              String?
+  total_estimated_duration Int
+  deadline                 String?
+  difficulty               Int?
+  confidence               Boolean?
+  status                   String
+  created_at               DateTime
+  updated_at               DateTime?
+
+  userId             String
+  user               User     @relation(fields: [userId], references: [uid], onDelete: Cascade)
+
+  comments           GoalComment[]
+
+  @@map("goals")
+}
+
+model GoalComment {
+  id         String   @id @default(uuid())
+  goal_id    String
+  goal       Goal     @relation(fields: [goal_id], references: [id], onDelete: Cascade)
+  user_role  String
+  content    String
+  created_at DateTime
+
+  @@map("goal_comments")
+}
+

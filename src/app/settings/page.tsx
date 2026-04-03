@@ -111,40 +111,7 @@ export default function SettingsPage() {
 
   const handleExport = async () => {
     try {
-      const json = await DataService.exportData();
-      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '_');
-      const defaultName = `pace_backup_${dateStr}.json`;
-
-      // 优先尝试使用强大的 File System Access API
-      // 这会直接弹出原生保存对话框，用户亲眼确认文件名，完美解决乱码/哈希名问题。
-      if ('showSaveFilePicker' in window) {
-        try {
-          const handle = await (window as any).showSaveFilePicker({
-            suggestedName: defaultName,
-            types: [{ description: 'JSON 文件', accept: { 'application/json': ['.json'] } }],
-          });
-          const writable = await handle.createWritable();
-          await writable.write(json);
-          await writable.close();
-          // 如果这里成功，就直接返回，不再执行后续代码
-          return;
-        } catch (err: any) {
-          // 如果用户点击“取消”保存，直接终止
-          if (err.name === 'AbortError') return;
-          console.warn('原生保存 API 报错，降级使用传统方案:', err);
-        }
-      }
-
-      // 如果浏览器不支持 (比如 Firefox/Safari/移动端) 则降级使用 Data URI
-      // Data URI 不需要通过内存引用的释放戳（RevokeObjectURL），彻底规避时序导致的丢失名称 Bug。
-      const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(json)}`;
-      const a = document.createElement('a');
-      a.href = dataUri;
-      a.download = defaultName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-
+      await DataService.downloadExportFile();
     } catch (error) {
       console.error('导出失败:', error);
       alert('导出备份失败');

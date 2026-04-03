@@ -1,0 +1,172 @@
+openapi: 3.0.0
+info:
+  title: Pace Cloud API
+  description: Pace 任务管理与时间追踪应用云端接口文档 (Sprint 14)
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: 默认开发环境
+paths:
+  /api/auth/send-code:
+    post:
+      summary: 发送手机验证码
+      description: 配合 Turnstile 人机验证，发送对应手机的登录验证码
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - phone
+                - turnstileToken
+              properties:
+                phone:
+                  type: string
+                  example: "13800138000"
+                turnstileToken:
+                  type: string
+                  description: Cloudflare Turnstile 的验证 Token
+      responses:
+        '200':
+          description: 发送成功
+        '400':
+          description: 参数缺失
+        '403':
+          description: 人机验证失败
+
+  /api/auth/login:
+    post:
+      summary: 手机验证码登录
+      description: 登录 Pace 并下发 auth_token Cookie
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - phone
+                - code
+              properties:
+                phone:
+                  type: string
+                  example: "13800138000"
+                code:
+                  type: string
+                  description: 验证码 (测试环境支持 888888)
+                  example: "888888"
+                role:
+                  type: string
+                  description: "强制设定的角色，支持 USER, ASSISTANT, SUPER_ADMIN，仅创建新号时有效"
+                  example: "USER"
+                nickname:
+                  type: string
+                  description: 用户昵称
+                avatar:
+                  type: string
+                  description: 用户头像
+      responses:
+        '200':
+          description: 登录成功
+        '401':
+          description: 验证码错误或已过期
+
+  /api/auth/logout:
+    post:
+      summary: 退出登录
+      description: 清除当前设备的 auth_token Cookie
+      tags:
+        - Auth
+      responses:
+        '200':
+          description: 退出成功
+
+  /api/auth/me:
+    get:
+      summary: 获取当前登录用户信息
+      tags:
+        - Auth
+      responses:
+        '200':
+          description: 成功返回用户资料
+        '401':
+          description: 未登录或凭证无效
+
+    patch:
+      summary: 更新用户个人资料
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nickname:
+                  type: string
+                avatar:
+                  type: string
+      responses:
+        '200':
+          description: 更新成功
+
+  /api/sync/import-local:
+    post:
+      summary: 上传并强接管本地数据
+      description: 在全量事务中清理当前用户云端数据，并将传入的本地 JSON 导入至云端 PostgreSQL 数据库
+      tags:
+        - Sync
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tasks:
+                  type: array
+                  items:
+                    type: object
+                execution_logs:
+                  type: array
+                  items:
+                    type: object
+                daily_anchors:
+                  type: array
+                  items:
+                    type: object
+                habit_templates:
+                  type: array
+                  items:
+                    type: object
+                goals:
+                  type: array
+                  items:
+                    type: object
+                goal_comments:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          description: 同步上传成功
+        '401':
+          description: 未鉴权
+
+  /api/sync/pull-all:
+    get:
+      summary: 全量拉取当前用户云端数据
+      description: 获取用户在云端的任务、习惯、目标等所有数据
+      tags:
+        - Sync
+      responses:
+        '200':
+          description: 成功返回数据对象 (格式同 import-local 入参)
+        '401':
+          description: 未鉴权

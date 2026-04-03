@@ -19,6 +19,16 @@ export enum TaskStatus {
   EXPIRED = 'EXPIRED',
 }
 
+/** 增量同步队列项 (Sprint 14) */
+export interface SyncQueueItem {
+  id?: number;
+  table: string;
+  action: 'create' | 'update' | 'delete';
+  recordId: string | number;
+  payload?: any;
+  created_at: string;
+}
+
 /**
  * 合法的状态流转映射
  * key: 当前状态, value: 允许转换到的目标状态列表

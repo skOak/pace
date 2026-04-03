@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { Task, ExecutionLog, DailyAnchor, HabitTemplate, Goal, GoalComment } from './types';
+import type { Task, ExecutionLog, DailyAnchor, HabitTemplate, Goal, GoalComment, SyncQueueItem } from './types';
 
 /**
  * PaceDB — 本地优先的浏览器数据库
@@ -22,6 +22,7 @@ export class PaceDB extends Dexie {
   habit_templates!: EntityTable<HabitTemplate, 'id'>;
   goals!: EntityTable<Goal, 'id'>;
   goal_comments!: EntityTable<GoalComment, 'id'>;
+  sync_queue!: EntityTable<SyncQueueItem, 'id'>;
 
   constructor() {
     super('PaceDB');
@@ -70,6 +71,10 @@ export class PaceDB extends Dexie {
       goals: 'id, status',
       goal_comments: 'id, goal_id',
       tasks: '++id, status, date, is_school_done, template_id, goal_id',
+    });
+
+    this.version(7).stores({
+      sync_queue: '++id, table, action',
     });
   }
 }

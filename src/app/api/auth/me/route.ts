@@ -21,7 +21,7 @@ export async function GET() {
       where: { uid: payload.uid as string }
     })
 
-    if (!user) {
+    if (!user || user.role === 'BANNED') {
       return NextResponse.json({ user: null }, { status: 401 })
     }
 

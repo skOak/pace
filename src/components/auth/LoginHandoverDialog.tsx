@@ -18,72 +18,127 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
   const [role, setRole] = useState<'USER'|'ASSISTANT'>('USER')
   const [step, setStep] = useState<'login' | 'handover'>('login')
   const [loading, setLoading] = useState(false)
+  const [handoverToken, setHandoverToken] = useState('')
+  const [errorMsg, setErrorMsg] = useState('')
+  const [successMsg, setSuccessMsg] = useState('')
 
   const handleSendCode = async () => {
-    if (!phone || !turnstileToken) return alert('请填写手机号并通过人机验证')
+    setErrorMsg('')
+    setSuccessMsg('')
+    if (!phone || !turnstileToken) return setErrorMsg('请填写手机号并通过人机验证')
     setLoading(true)
     const res = await fetch('/api/auth/send-code', {
       method: 'POST', body: JSON.stringify({ phone, turnstileToken })
     })
     setLoading(false)
-    if (!res.ok) alert('发送失败')
-    else alert('验证码已发送 (开发测试阶段输入任意内容验证失败则回退错误，输入 888888 万能验证码通过)')
+    if (!res.ok) setErrorMsg('发送验证码失败')
+    else setSuccessMsg('验证码已发送 (测试: 888888)')
   }
 
   const handleLogin = async () => {
+    setErrorMsg('')
+    setSuccessMsg('')
     setLoading(true)
     const localProfile = await SettingsService.getProfile();
+    const localTaskCount = await db.tasks.count()
+    const localGoalCount = await db.goals.count()
+    const hasLocalData = localTaskCount > 0 || localGoalCount > 0
+
     const payload = { 
         phone, code, role, 
         nickname: localProfile?.name || undefined, 
-        avatar: localProfile?.avatar || undefined 
+        avatar: localProfile?.avatar || undefined,
+        checkOnly: true
     };
     const res = await fetch('/api/auth/login', {
       method: 'POST', body: JSON.stringify(payload)
     })
-    setLoading(false)
+    
     if (res.ok) {
-      // Pre-check Dexie
-      const taskCount = await db.tasks.count()
-      if (taskCount > 0) {
-         setStep('handover')
+      const data = await res.json()
+      setHandoverToken(data.handoverToken)
+
+      if (hasLocalData) {
+         if (data.hasCloudData) {
+            // 场景 B: 云端有数据，必须弹出强制覆盖对话框
+            setLoading(false)
+            setStep('handover')
+         } else {
+            // 场景 A: 云端无数据，默默合并到云端
+            await executeMerge(data.handoverToken)
+         }
       } else {
-         await refreshAuth()
-         onOpenChange(false)
-         window.location.reload()
+         // 本地无数据，放行
+         await executeWipeAndLogin(data.handoverToken)
       }
     } else {
-      alert('登录失败: 验证码错误或过期')
+      setLoading(false)
+      try {
+        const errData = await res.json()
+        setErrorMsg(errData.error || '登录失败: 验证码错误或过期')
+      } catch (e) {
+        setErrorMsg('登录失败: 内部跨源错误')
+      }
     }
   }
 
-  const handleMerge = async () => {
-    // Sprint 14 merge logic placeholder: 
-    // In future iterations, we iterate Dexie table and send to /api/sync/import-local
-    alert('暂未实现上传合并，暂时仅切入登录态')
-    await refreshAuth()
-    onOpenChange(false)
-    window.location.reload()
+  const confirmSession = async (token: string) => {
+    const res = await fetch('/api/auth/confirm-login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token })
+    });
+    if (!res.ok) throw new Error('Session Confirm Failed');
+  };
+
+  const executeMerge = async (token: string) => {
+    try {
+      await confirmSession(token);
+      
+      const [tasks, execution_logs, daily_anchors, habit_templates, goals, goal_comments] = await Promise.all([
+        db.tasks.toArray(),
+        db.execution_logs.toArray(),
+        db.daily_anchors.toArray(),
+        db.habit_templates.toArray(),
+        db.goals.toArray(),
+        db.goal_comments.toArray()
+      ]);
+
+      const payload = {
+        tasks, execution_logs, daily_anchors, habit_templates, goals, goal_comments
+      };
+
+      const res = await fetch('/api/sync/import-local', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error('同步失败');
+
+      await executeWipeAndLogin(token);
+    } catch(e) {
+      console.error(e);
+      alert('上传合并失败，请重试');
+      setLoading(false);
+    }
   }
 
-  const handleWipeAndExport = async () => {
+  const handleManualExport = async () => {
     try {
-      const data = await DataService.exportData()
-      const blob = new Blob([data], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `pace-export-${new Date().toISOString()}.json`
-      a.click()
-  
-      await hardResetDatabase()
-      await refreshAuth()
-      onOpenChange(false)
-      window.location.reload()
+      await DataService.downloadExportFile();
     } catch(e) {
       console.error(e)
       alert("导出失败")
     }
+  }
+
+  const executeWipeAndLogin = async (tokenOverride?: string) => {
+    const tokenToUse = tokenOverride || handoverToken;
+    if (tokenToUse) await confirmSession(tokenToUse);
+    
+    await hardResetDatabase();
+    await refreshAuth();
+    onOpenChange(false);
+    window.location.reload();
   }
 
   return (
@@ -113,16 +168,34 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
                  内测阶段请使用任意手机号码，并输入万能验证码 <b>888888</b>
                </p>
              </div>
-             <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" onClick={handleLogin} disabled={loading || !phone || !code}>登录并接管设备</Button>
+             
+             {errorMsg && (
+               <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg flex items-start gap-2 animate-in fade-in zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 duration-200">
+                 <span className="text-base leading-none">⚠️</span> 
+                 <span className="font-medium">{errorMsg}</span>
+               </div>
+             )}
+             {successMsg && (
+               <div className="p-3 text-sm text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-lg flex items-start gap-2 animate-in fade-in zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 duration-200">
+                 <span className="text-base leading-none">✅</span> 
+                 <span className="font-medium">{successMsg}</span>
+               </div>
+             )}
+
+             <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" onClick={handleLogin} disabled={loading || !phone || !code}>
+                {loading ? '处理中...' : '登录并接管设备'}
+             </Button>
           </div>
         ) : (
           <div className="space-y-4 pt-4">
-            <DialogDescription className="text-gray-800 leading-relaxed">
-              我们检测到您的设备上有未同步的离线数据记录。为了保证物理设备与云端身份的唯一绑定，请决定如何处理这些本地数据：
+            <DialogDescription className="text-gray-800 leading-relaxed font-medium bg-red-50 p-4 rounded-lg flex items-start gap-2">
+              <span className="text-xl">⚠️</span> 登录将完全接管并锁定此设备，这意味着当前设备上**所有本地未登录时的操作数据都将被清空**且被该账号云端内容覆盖。强烈建议您先导出 JSON 备份。
             </DialogDescription>
             <div className="flex flex-col gap-3 pt-2">
-              <Button onClick={handleMerge} className="bg-gray-800 text-white hover:bg-gray-900">保留本地记录并合并至云端</Button>
-              <Button variant="destructive" onClick={handleWipeAndExport} className="hover:bg-red-600">导出我的记录为 JSON 备份并清空本地登入</Button>
+              <Button variant="outline" onClick={handleManualExport} className="border-gray-300">第一步：手动导出本地 JSON 备份</Button>
+              <Button onClick={() => { setLoading(true); executeWipeAndLogin(); }} className="bg-red-600 text-white hover:bg-red-700 font-bold" disabled={loading}>
+                 {loading ? '处理中...' : '我已经知晓，确认清空并登录'}
+              </Button>
             </div>
           </div>
         )}

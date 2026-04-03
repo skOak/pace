@@ -22,6 +22,44 @@ export class DataService {
   }
 
   /**
+   * 触发浏览器下载备份文件
+   */
+  static async downloadExportFile(): Promise<void> {
+    try {
+      const json = await this.exportData();
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '_');
+      const defaultName = `pace_backup_${dateStr}.json`;
+
+      if ('showSaveFilePicker' in window) {
+        try {
+          const handle = await (window as any).showSaveFilePicker({
+            suggestedName: defaultName,
+            types: [{ description: 'JSON 文件', accept: { 'application/json': ['.json'] } }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(json);
+          await writable.close();
+          return;
+        } catch (err: any) {
+          if (err.name === 'AbortError') return;
+          console.warn('原生保存 API 报错，降级使用传统方案:', err);
+        }
+      }
+
+      const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(json)}`;
+      const a = document.createElement('a');
+      a.href = dataUri;
+      a.download = defaultName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('导出文件失败:', error);
+      throw error;
+    }
+  }
+
+  /**
    * 清空所有数据 (用于测试与重置)
    */
   static async clearAllData(): Promise<void> {

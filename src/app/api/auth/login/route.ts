@@ -6,7 +6,7 @@ import { signToken } from '@/lib/auth'
 
 export async function POST(req: Request) {
   try {
-    const { phone, code, role = 'USER', nickname, avatar } = await req.json()
+    const { phone, code, role = 'USER', nickname, avatar, checkOnly } = await req.json()
 
     if (!phone || !code) {
       return NextResponse.json({ error: '手机号和验证码必填' }, { status: 400 })
@@ -21,6 +21,10 @@ export async function POST(req: Request) {
     let user = await prisma.user.findUnique({
       where: { phone }
     })
+
+    if (user && user.role === 'BANNED') {
+      return NextResponse.json({ error: '对不起，此账号已被封禁。如有疑问请联系管理员。' }, { status: 403 })
+    }
 
     let isNewUser = false
     if (!user) {
@@ -46,6 +50,27 @@ export async function POST(req: Request) {
     // Issue JWT
     const token = await signToken({ uid: user.uid, role: user.role })
 
+    const taskCount = await prisma.task.count({ where: { userId: user.uid } })
+    const goalCount = await prisma.goal.count({ where: { userId: user.uid } })
+    const hasCloudData = taskCount > 0 || goalCount > 0
+
+    if (checkOnly) {
+      return NextResponse.json({
+        success: true,
+        isNewUser,
+        hasCloudData,
+        handoverToken: token,
+        user: {
+          uid: user.uid,
+          phone: user.phone,
+          nickname: user.nickname,
+          avatar: user.avatar,
+          role: user.role,
+          level: user.level
+        }
+      })
+    }
+
     const cookieStore = await cookies()
     cookieStore.set({
       name: 'auth_token',
@@ -59,6 +84,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       isNewUser,
+      hasCloudData,
       user: {
         uid: user.uid,
         phone: user.phone,

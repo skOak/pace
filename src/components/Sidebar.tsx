@@ -3,14 +3,15 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { Home, Inbox, Settings, PieChart, Repeat, Target, BookOpen } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { Home, Inbox, Settings, PieChart, Repeat, Target, BookOpen, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TaskService } from '@/services/task-service';
 import { SettingsService } from '@/services/settings-service';
 import { TaskStatus } from '@/lib/types';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { LoginHandoverDialog } from './auth/LoginHandoverDialog';
-import { Cloud, WifiOff, LogOut } from 'lucide-react';
+import { Cloud, WifiOff, LogOut, RefreshCw } from 'lucide-react';
 import { db } from '@/lib/db';
 import { ConfirmDialog } from './ConfirmDialog';
 
@@ -32,6 +33,10 @@ export function Sidebar() {
   const [completedRatio, setCompletedRatio] = useState(0);
   const [profileName, setProfileName] = useState('');
   const [profileAvatar, setProfileAvatar] = useState('');
+  const [isOnline, setIsOnline] = useState(true);
+
+  // 实时监听待同步队列数量
+  const syncQueueCount = useLiveQuery(() => db.sync_queue.count(), [], 0);
 
   const fetchProfile = async () => {
     const profile = await SettingsService.getProfile();
@@ -44,7 +49,19 @@ export function Sidebar() {
   useEffect(() => {
     fetchProfile();
     window.addEventListener('pace_profile_updated', fetchProfile);
-    return () => window.removeEventListener('pace_profile_updated', fetchProfile);
+    
+    // 网络状态监听
+    setIsOnline(navigator.onLine);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('pace_profile_updated', fetchProfile);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   useEffect(() => {
@@ -77,6 +94,28 @@ export function Sidebar() {
   }, []);
 
   const handleLogout = async () => {
+    // 退出前不仅注销 token，更要确保最后时刻的数据被上报到云端，以免新增任务丢失
+    if (status === 'loggedIn') {
+      try {
+        const [tasks, execution_logs, daily_anchors, habit_templates, goals, goal_comments] = await Promise.all([
+          db.tasks.toArray(),
+          db.execution_logs.toArray(),
+          db.daily_anchors.toArray(),
+          db.habit_templates.toArray(),
+          db.goals.toArray(),
+          db.goal_comments.toArray()
+        ]);
+        const payload = { tasks, execution_logs, daily_anchors, habit_templates, goals, goal_comments };
+        await fetch('/api/sync/import-local', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {
+        console.error('Logout sync failed', e);
+      }
+    }
+
     await logout();
     await db.delete(); // Hard delete IDB completely
     window.location.reload();
@@ -99,8 +138,23 @@ export function Sidebar() {
         {/* Auth Status Check & Handover */}
         <div className="flex items-center justify-between bg-gray-100 rounded-lg p-2 text-xs font-medium">
           {status === 'loggedIn' ? (
-            <div className="flex items-center gap-1.5 text-green-600">
-               <Cloud className="w-3.5 h-3.5" /> 云端同步 ({user?.role === 'ASSISTANT' ? '协助' : '标准'})
+            <div className="flex items-center gap-1.5 transition-colors">
+               {syncQueueCount === 0 ? (
+                 <>
+                   <Cloud className="w-3.5 h-3.5 text-green-600" /> 
+                   <span className="text-green-600">全部已同步</span>
+                 </>
+               ) : isOnline ? (
+                 <>
+                   <RefreshCw className="w-3.5 h-3.5 text-blue-500 animate-spin" /> 
+                   <span className="text-blue-500">同步中 ({syncQueueCount})</span>
+                 </>
+               ) : (
+                 <>
+                   <WifiOff className="w-3.5 h-3.5 text-orange-500" /> 
+                   <span className="text-orange-500">等待网络 ({syncQueueCount})</span>
+                 </>
+               )}
             </div>
           ) : (
             <div className="flex items-center gap-1.5 text-gray-500">
@@ -146,6 +200,22 @@ export function Sidebar() {
             </Link>
           );
         })}
+        {user?.role === 'SUPER_ADMIN' && (
+          <div className="pt-4 mt-2 border-t border-gray-100">
+            <Link
+              href="/admin"
+              className={cn(
+                'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200',
+                pathname.startsWith('/admin')
+                  ? 'bg-red-50 text-red-600 shadow-sm'
+                  : 'text-gray-500 hover:bg-red-50/50 hover:text-red-700'
+              )}
+            >
+              <Shield className={cn('h-5 w-5', pathname.startsWith('/admin') ? 'text-red-500' : 'text-gray-400')} />
+              管理后台
+            </Link>
+          </div>
+        )}
       </nav>
       {/* Bottom section if needed */}
       <div className="p-4 border-t border-gray-100">
