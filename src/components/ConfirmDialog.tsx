@@ -18,6 +18,7 @@ interface ConfirmDialogProps {
   confirmText?: string;
   cancelText?: string;
   isDestructive?: boolean;
+  hideCancel?: boolean;
 }
 
 export function ConfirmDialog({
@@ -29,6 +30,7 @@ export function ConfirmDialog({
   confirmText = '确定',
   cancelText = '取消',
   isDestructive = false,
+  hideCancel = false,
 }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -40,9 +42,11 @@ export function ConfirmDialog({
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="mt-4 gap-2 sm:gap-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {cancelText}
-          </Button>
+          {!hideCancel && (
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              {cancelText}
+            </Button>
+          )}
           <Button
             variant={isDestructive ? 'destructive' : 'default'}
             onClick={() => {

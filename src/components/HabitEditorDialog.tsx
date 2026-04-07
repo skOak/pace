@@ -17,7 +17,6 @@ import {
 import { HabitService } from '@/services/habit-service';
 import type { HabitTemplate } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 interface HabitEditorDialogProps {
   open: boolean;
@@ -49,7 +48,6 @@ export function HabitEditorDialog({ open, onOpenChange, habit, onSave }: HabitEd
   const [confidence, setConfidence] = useState<boolean>(true);
 
   const [loading, setLoading] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -161,21 +159,6 @@ export function HabitEditorDialog({ open, onOpenChange, habit, onSave }: HabitEd
       console.error('Failed to save habit', e);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const confirmDelete = async () => {
-    if (!habit || !habit.id) return;
-    setLoading(true);
-    try {
-      await HabitService.delete(habit.id);
-      onSave(''); // trigger refresh
-      onOpenChange(false);
-    } catch (e) {
-      console.error('Failed to delete habit', e);
-    } finally {
-      setLoading(false);
-      setConfirmOpen(false);
     }
   };
 
@@ -446,30 +429,14 @@ export function HabitEditorDialog({ open, onOpenChange, habit, onSave }: HabitEd
           )}
         </div>
 
-        <DialogFooter className="flex sm:justify-between items-center w-full gap-2">
-          {habit ? (
-            <Button variant="ghost" size="sm" onClick={() => setConfirmOpen(true)} className="text-red-500 hover:text-red-600 hover:bg-red-50 px-2 justify-start sm:w-auto w-full">
-              <Trash2 className="w-4 h-4 mr-1.5" /> 移除/归档
-            </Button>
-          ) : <div />}
-          <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-            <Button variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>取消</Button>
-            <Button className="w-full sm:w-auto" onClick={handleSave} disabled={loading || !title.trim() || currentRule.length === 0}>
-              {loading ? '保存中...' : '保存习惯'}
-            </Button>
-          </div>
+        <DialogFooter className="flex items-center w-full justify-end gap-2">
+          <Button variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>取消</Button>
+          <Button className="w-full sm:w-auto" onClick={handleSave} disabled={loading || !title.trim() || currentRule.length === 0}>
+            {loading ? '保存中...' : '保存习惯'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-    <ConfirmDialog
-      open={confirmOpen}
-      onOpenChange={setConfirmOpen}
-      title="确认移除该习惯吗？"
-      description="如果该习惯已经产生过历史打卡记录，它将仅被“归档”以保留数据分析；如果它是全新的，将被彻底删除。"
-      confirmText="确定移除"
-      isDestructive={true}
-      onConfirm={confirmDelete}
-    />
     </>
   );
 }

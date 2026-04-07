@@ -137,10 +137,26 @@ export default function GoalDetailPage({ params }: { params: Promise<{ id: strin
           </div>
         </div>
         
-        <Button onClick={() => setIsSessionDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-4 gap-1.5 shadow-sm">
-          <PlusSquare className="w-4 h-4" />
-          <span className="font-medium">导入今日任务</span>
-        </Button>
+        <div className="flex items-center gap-3">
+          {goal.status === 'DONE' || goal.status === 'ARCHIVED' ? (
+             <Button variant="outline" onClick={async () => { await GoalService.update(goal.id, { status: 'ACTIVE' as any }); fetchData(); }} className="text-orange-600 border-orange-200 bg-orange-50 hover:bg-orange-100 hover:text-orange-700 rounded-full px-4 gap-1.5 shadow-sm">
+               <ArrowLeft className="w-4 h-4 rotate-180" />
+               <span className="font-medium">重启目标</span>
+             </Button>
+          ) : (
+             <Button variant="outline" onClick={async () => { await GoalService.update(goal.id, { status: 'DONE' as any }); fetchData(); }} className="text-emerald-600 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-700 rounded-full px-4 gap-1.5 shadow-sm">
+               <Target className="w-4 h-4" />
+               <span className="font-medium">结束目标</span>
+             </Button>
+          )}
+
+          {goal.status !== 'DONE' && goal.status !== 'ARCHIVED' && (
+            <Button onClick={() => setIsSessionDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-4 gap-1.5 shadow-sm">
+              <PlusSquare className="w-4 h-4" />
+              <span className="font-medium">导入今日任务</span>
+            </Button>
+          )}
+        </div>
       </header>
 
       {/* 进度与警示条 */}

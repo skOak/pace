@@ -9,6 +9,7 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import { HabitTemplate, Task, TaskStatus } from '@/lib/types';
+import { HabitService } from '@/services/habit-service';
 import { TaskService } from '@/services/task-service';
 import { ExecutionLogService } from '@/services/execution-log-service';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
@@ -104,11 +105,16 @@ export function HabitInsightSheet({ open, onOpenChange, habit }: HabitInsightShe
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-md md:max-w-lg lg:max-w-2xl overflow-y-auto pb-24 border-l-0 sm:border-l sm:rounded-l-2xl shadow-2xl p-0">
-        <div className="bg-white/80 backdrop-blur-md border-b sticky top-0 z-10 px-6 py-4">
+        <div className="bg-white/80 backdrop-blur-md border-b sticky top-0 z-10 px-6 py-4 flex justify-between items-start">
           <SheetHeader>
             <SheetTitle className="text-xl flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-blue-600" />
               习惯洞察：{habit?.title}
+              {habit?.status === 'archived' && (
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200">
+                  已结束
+                </span>
+              )}
             </SheetTitle>
             <SheetDescription>
               客观还原该习惯在长周期下的数据表现与改进空间。

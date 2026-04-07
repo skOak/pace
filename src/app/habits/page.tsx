@@ -8,9 +8,10 @@ import { HabitEditorDialog } from '@/components/HabitEditorDialog';
 import { HabitInsightSheet } from '@/components/HabitInsightSheet';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Edit3, CalendarCheck2, PlayCircle, Loader2, TrendingUp } from 'lucide-react';
+import { Plus, Edit3, CalendarCheck2, PlayCircle, Loader2, TrendingUp, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { formatDuration } from '@/lib/forecast-utils';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 export default function HabitsPage() {
   const [habits, setHabits] = useState<HabitTemplate[]>([]);
@@ -22,6 +23,7 @@ export default function HabitsPage() {
   const [editingHabit, setEditingHabit] = useState<HabitTemplate | null>(null);
   const [skipHabit, setSkipHabit] = useState<HabitTemplate | null>(null);
   const [insightHabit, setInsightHabit] = useState<HabitTemplate | null>(null);
+  const [deleteHabit, setDeleteHabit] = useState<HabitTemplate | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -95,6 +97,18 @@ export default function HabitsPage() {
       loadData();
     }
     setSkipHabit(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteHabit || !deleteHabit.id) return;
+    try {
+      await HabitService.delete(deleteHabit.id);
+      loadData();
+    } catch (e) {
+      console.error('Failed to end habit', e);
+    } finally {
+      setDeleteHabit(null);
+    }
   };
 
   if (loading && habits.length === 0) {
@@ -224,6 +238,18 @@ export default function HabitsPage() {
                     ) : null}
 
 
+                    {habit.status !== 'archived' ? (
+                      <Button variant="outline" size="sm" onClick={() => setDeleteHabit(habit)} className="h-8 md:px-3 text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 hidden sm:flex">
+                        <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                        结束
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={async () => { await HabitService.update(habit.id!, { status: 'active' }); loadData(); }} className="h-8 md:px-3 text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700 hidden sm:flex">
+                        <ArrowLeft className="w-3.5 h-3.5 mr-1 rotate-180" />
+                        重启
+                      </Button>
+                    )}
+
                     {habit.status !== 'archived' && (
                       <Button variant="outline" size="sm" onClick={() => handleEdit(habit)} className="h-8 md:px-3 text-gray-500 hover:text-blue-600 border-gray-200">
                         <Edit3 className="w-3.5 h-3.5 mr-1 hidden sm:inline-block" />
@@ -276,6 +302,16 @@ export default function HabitsPage() {
         open={!!insightHabit}
         onOpenChange={(open) => !open && setInsightHabit(null)}
         habit={insightHabit}
+      />
+
+      <ConfirmDialog
+        open={!!deleteHabit}
+        onOpenChange={(open) => !open && setDeleteHabit(null)}
+        title={(deleteHabit?.generated_count || 0) > 0 ? "确认结束并归档该习惯吗？" : "确认彻底结束并删除该习惯吗？"}
+        description={(deleteHabit?.generated_count || 0) > 0 ? "该习惯已经产生过历史打卡记录，结束操作将仅作“归档”处理，能继续保留它的数据分析和历史图表。" : "该习惯尚未产生任何打卡记录，结束后将被彻底物理删除且无法恢复。"}
+        confirmText={(deleteHabit?.generated_count || 0) > 0 ? "结束并归档" : "彻底结束"}
+        isDestructive={true}
+        onConfirm={handleConfirmDelete}
       />
     </div>
   );

@@ -1,7 +1,9 @@
 import React, { useRef, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
-import { Paperclip, Loader2 } from "lucide-react";
+import { Paperclip, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 interface MarkdownEditorProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "onChange"> {
   value: string;
@@ -10,7 +12,18 @@ interface MarkdownEditorProps extends Omit<React.TextareaHTMLAttributes<HTMLText
 
 export function MarkdownEditor({ value, onValueChange, className, ...props }: MarkdownEditorProps) {
   const [uploading, setUploading] = useState(false);
+  const [unauthOpen, setUnauthOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const { status } = useAuth();
+
+  const checkAuth = () => {
+    if (status !== 'loggedIn') {
+      setUnauthOpen(true);
+      return false;
+    }
+    return true;
+  };
 
   const executeUpload = async (file: File) => {
     setUploading(true);
@@ -67,6 +80,10 @@ export function MarkdownEditor({ value, onValueChange, className, ...props }: Ma
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!checkAuth()) {
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
       await executeUpload(file);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -74,6 +91,7 @@ export function MarkdownEditor({ value, onValueChange, className, ...props }: Ma
 
   const handleDrop = async (e: React.DragEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
+    if (!checkAuth()) return;
     const file = e.dataTransfer.files?.[0];
     if (file && !uploading) {
       await executeUpload(file);
@@ -88,15 +106,17 @@ export function MarkdownEditor({ value, onValueChange, className, ...props }: Ma
     const items = Array.from(e.clipboardData.items);
     const imageItem = items.find(item => item.type.startsWith('image/'));
     if (imageItem && !uploading) {
+      e.preventDefault();
+      if (!checkAuth()) return;
       const file = imageItem.getAsFile();
       if (file) {
-        e.preventDefault();
         await executeUpload(file);
       }
     }
   };
 
   return (
+    <>
     <div className={cn("relative group border rounded-md border-gray-200 bg-gray-50 focus-within:ring-2 focus-within:ring-blue-500 transition-all", className)}>
       <Textarea 
         value={value}
@@ -130,5 +150,20 @@ export function MarkdownEditor({ value, onValueChange, className, ...props }: Ma
         </div>
       </div>
     </div>
+    <ConfirmDialog
+      open={unauthOpen}
+      onOpenChange={setUnauthOpen}
+      title={
+        <div className="flex items-center gap-2 text-orange-600">
+          <AlertCircle className="w-5 h-5 pb-0.5" />
+          需要登录
+        </div>
+      }
+      description="当前未登录 Pace 账号，无法获得云端媒体存储配额验证。请前往「设置」页面登录通行证以使用该功能。"
+      confirmText="我知道了"
+      hideCancel={true}
+      onConfirm={() => setUnauthOpen(false)}
+    />
+    </>
   );
 }
