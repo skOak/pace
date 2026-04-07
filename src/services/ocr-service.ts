@@ -1,5 +1,12 @@
 import { SettingsService } from './settings-service';
 
+export class QuotaExceededError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'QuotaExceededError';
+  }
+}
+
 /**
  * 将字符串进行 SHA-256 Hash 并输出 Hex 字符串
  */
@@ -29,16 +36,44 @@ async function sign(key: Uint8Array | string | ArrayBuffer, msg: string): Promis
 
 export class OcrService {
   /**
-   * 调用腾讯云通用印刷体识别接口 (GeneralBasicOCR)
+   * OCR 统一识别接口
    * @param base64Image 图片的 base64 字符串（可带或不带 data:image/jpeg;base64, 前缀）
+   * @param isLoggedIn 是否为云端接管状态。如果是，使用服务端算力中台；如果为否，使用本地存放的配置和签名。
    * @returns 识别并处理好的文本行（用于输入到批量添加组件）
    */
-  static async recognizeImage(base64Image: string): Promise<string> {
+  static async recognizeImage(base64Image: string, isLoggedIn: boolean = false): Promise<string> {
+    if (isLoggedIn) {
+      // 在线模式: 调用后端中台
+      const response = await fetch('/api/ocr/recognize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64Image, type: 'general' })
+      });
+      
+      if (response.status === 429) {
+        const body = await response.json();
+        throw new QuotaExceededError(body.message || '免费使用额度不足，请升级专业版获取更高使用额度。');
+      }
+      
+      if (!response.ok) {
+        let msg = `OCR 接口请求失败：HTTP ${response.status}`;
+        try { 
+          const b = await response.json(); 
+          if(b.error) msg = b.error; 
+        } catch(e){}
+        throw new Error(msg);
+      }
+      
+      const result = await response.json();
+      return result.text || '';
+    }
+
+    // === 以下为纯本地离线模式逻辑 ===
     const secretId = await SettingsService.getSecure('ocr_secret_id');
     const secretKey = await SettingsService.getSecure('ocr_secret_key');
 
     if (!secretId || !secretKey) {
-      throw new Error('未配置腾讯云 OCR API 密钥，请前往设置页面配置。');
+      throw new Error('未配置本地腾讯云 OCR API 密钥，请前往设置页面配置。');
     }
 
     // 剔除前缀
@@ -47,24 +82,21 @@ export class OcrService {
     const endpoint = '/api/tencent-ocr';
     const host = 'ocr.tencentcloudapi.com';
     const service = 'ocr';
-    const region = 'ap-guangzhou'; // 默认可用区
-    const action = 'GeneralAccurateOCR'; // 切换为高精度版
+    const region = 'ap-guangzhou'; 
+    const action = 'GeneralAccurateOCR'; 
     const version = '2018-11-19';
     const timestamp = Math.floor(Date.now() / 1000);
     const date = new Date(timestamp * 1000).toISOString().split('T')[0];
 
     const payload = JSON.stringify({ ImageBase64: cleanBase64 });
 
-    // --- 1. 拼接规范请求串 ---
     const hashedPayload = await sha256Hex(payload);
     const canonicalRequest = `POST\n/\n\ncontent-type:application/json; charset=utf-8\nhost:${host}\n\ncontent-type;host\n${hashedPayload}`;
 
-    // --- 2. 拼接待签名字符串 ---
     const hashedCanonicalRequest = await sha256Hex(canonicalRequest);
     const credentialScope = `${date}/${service}/tc3_request`;
     const stringToSign = `TC3-HMAC-SHA256\n${timestamp}\n${credentialScope}\n${hashedCanonicalRequest}`;
 
-    // --- 3. 计算签名 ---
     const secretDate = await sign(`TC3${secretKey}`, date);
     const secretService = await sign(new Uint8Array(secretDate), service);
     const secretSigning = await sign(new Uint8Array(secretService), 'tc3_request');
@@ -75,10 +107,8 @@ export class OcrService {
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
 
-    // --- 4. 拼接 Authorization ---
     const authorization = `TC3-HMAC-SHA256 Credential=${secretId}/${credentialScope}, SignedHeaders=content-type;host, Signature=${signature}`;
 
-    // --- 5. 发起请求 ---
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -105,15 +135,11 @@ export class OcrService {
       throw new Error(`OCR 识别出错：${result.Response.Error.Message}`);
     }
 
-    // --- 6. 结果处理聚合 ---
     if (!result.Response || !result.Response.TextDetections) {
       return '';
     }
 
     const lines: string[] = result.Response.TextDetections.map((item: any) => item.DetectedText);
-    
-    // 取消了原先的盲目自动打 Tag，防止乱贴标签
-    // 让后续的 UI 层 Batch Add 逻辑通过树状分组（Header）来分配对应科目标签
     return lines.join('\n');
   }
 }

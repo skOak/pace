@@ -2,8 +2,7 @@ import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import prisma from '@/lib/prisma'
-import { Users, Activity, Target, ShieldCheck, Flame, Cpu } from 'lucide-react'
-import { UserManagementTable } from '@/components/admin/UserManagementTable'
+import { Users, Activity, Target, ShieldCheck, Flame, Cpu, Eye, UserPlus } from 'lucide-react'
 
 export default async function AdminDashboardPage() {
   const cookieStore = await cookies()
@@ -15,7 +14,6 @@ export default async function AdminDashboardPage() {
 
   const totalUsers = await prisma.user.count()
   const superAdmins = await prisma.user.count({ where: { role: 'SUPER_ADMIN' } })
-  
   // Calculate DAU
   const startOfToday = new Date()
   startOfToday.setHours(0, 0, 0, 0)
@@ -25,24 +23,24 @@ export default async function AdminDashboardPage() {
   })
   const dau = dauResult.length
 
-  const recentUsers = await prisma.user.findMany({
-    orderBy: { created_at: 'desc' },
-    take: 10,
-    select: {
-      uid: true,
-      phone: true,
-      nickname: true,
-      role: true,
-      level: true,
-      created_at: true,
-    }
+  // Calculate PV and UV for today
+  const year = startOfToday.getFullYear();
+  const month = String(startOfToday.getMonth() + 1).padStart(2, '0');
+  const day = String(startOfToday.getDate()).padStart(2, '0');
+  const dateStr = `${year}-${month}-${day}`;
+
+  const todayPv = await prisma.siteVisitLog.count({
+    where: { date_str: dateStr }
   })
 
-  // Format the date for the client component
-  const serializedUsers = recentUsers.map((u: any) => ({
-    ...u,
-    created_at: u.created_at.toISOString()
-  }))
+  // Group by distinct IPs to calculate UV
+  const todayUvResult = await prisma.siteVisitLog.groupBy({
+    by: ['ip'],
+    where: { date_str: dateStr },
+  })
+  const todayUv = todayUvResult.length
+
+
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 w-full">
@@ -58,29 +56,34 @@ export default async function AdminDashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start gap-4">
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-lg"><Users className="w-6 h-6"/></div>
+          <div className="p-3 bg-purple-50 text-purple-600 rounded-lg"><Eye className="w-6 h-6"/></div>
           <div>
-            <div className="text-sm text-gray-500 font-medium pb-1">总注册用户</div>
-            <div className="text-3xl font-bold">{totalUsers}</div>
+            <div className="text-sm text-gray-500 font-medium pb-1">今日全页面请求 (PV)</div>
+            <div className="text-3xl font-bold">{todayPv}</div>
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start gap-4">
+          <div className="p-3 bg-green-50 text-green-600 rounded-lg"><UserPlus className="w-6 h-6"/></div>
+          <div>
+            <div className="text-sm text-gray-500 font-medium pb-1">今日设备数 (UV)</div>
+            <div className="text-3xl font-bold">{todayUv}</div>
           </div>
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start gap-4">
           <div className="p-3 bg-orange-50 text-orange-500 rounded-lg"><Flame className="w-6 h-6"/></div>
           <div>
-            <div className="text-sm text-gray-500 font-medium pb-1">今日活跃 (DAU)</div>
+            <div className="text-sm text-gray-500 font-medium pb-1">已登活跃 (DAU)</div>
             <div className="text-3xl font-bold">{dau}</div>
           </div>
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start gap-4">
           <div className="p-3 bg-slate-50 text-slate-800 rounded-lg"><ShieldCheck className="w-6 h-6"/></div>
           <div>
-            <div className="text-sm text-gray-500 font-medium pb-1">管理员账号</div>
-            <div className="text-3xl font-bold">{superAdmins}</div>
+            <div className="text-sm text-gray-500 font-medium pb-1">已注册用户</div>
+            <div className="text-3xl font-bold">{totalUsers}</div>
           </div>
         </div>
       </div>
-
-      <UserManagementTable initialUsers={serializedUsers} currentUserUid={payload.uid as string} />
     </div>
   )
 }

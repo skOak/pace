@@ -16,6 +16,10 @@ model User {
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
   storage_usage  Int      @default(0) // 以字节为单位的存储用量
+  last_ip        String?
+  last_ua        String?
+  first_active_at DateTime?
+  last_active_at  DateTime?
 
   tasks          Task[]
   executionLogs  ExecutionLog[]
@@ -139,3 +143,41 @@ model GoalComment {
   @@map("goal_comments")
 }
 
+model SystemConfig {
+  key        String   @id
+  value      String
+  updated_at DateTime @updatedAt
+
+  @@map("system_configs")
+}
+
+model OcrCache {
+  id         String   @id @default(uuid())
+  image_md5  String   @unique
+  result     String
+  created_at DateTime @default(now())
+
+  @@map("ocr_cache")
+}
+
+model OcrUsageLog {
+  id         String   @id @default(uuid())
+  userId     String
+  created_at DateTime @default(now())
+
+  @@index([userId, created_at])
+  @@map("ocr_usage_logs")
+}
+
+model SiteVisitLog {
+  id         String   @id @default(uuid())
+  ip         String
+  ua         String
+  path       String
+  date_str   String
+  created_at DateTime @default(now())
+
+  @@index([date_str])
+  @@index([ip, date_str])
+  @@map("site_visit_logs")
+}

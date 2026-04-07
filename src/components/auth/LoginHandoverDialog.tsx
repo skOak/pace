@@ -21,10 +21,12 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
   const [handoverToken, setHandoverToken] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+  const [agreed, setAgreed] = useState(false)
 
   const handleSendCode = async () => {
     setErrorMsg('')
     setSuccessMsg('')
+    if (!/^1[3-9]\d{9}$/.test(phone)) return setErrorMsg('请输入11位有效的中国内地手机号')
     if (!phone || !turnstileToken) return setErrorMsg('请填写手机号并通过人机验证')
     setLoading(true)
     const res = await fetch('/api/auth/send-code', {
@@ -38,6 +40,7 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
   const handleLogin = async () => {
     setErrorMsg('')
     setSuccessMsg('')
+    if (!/^1[3-9]\d{9}$/.test(phone)) return setErrorMsg('请输入11位有效的中国内地手机号')
     setLoading(true)
     const localProfile = await SettingsService.getProfile();
     const localTaskCount = await db.tasks.count()
@@ -152,7 +155,7 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
              <Input placeholder="输入您的手机号" value={phone} onChange={e => setPhone(e.target.value)} />
              <div className="flex gap-2">
                <Input placeholder="短信验证码" value={code} onChange={e => setCode(e.target.value)} />
-               <Button onClick={handleSendCode} disabled={loading || !phone || !turnstileToken}>获取</Button>
+               <Button onClick={handleSendCode} disabled={loading || !phone || !turnstileToken || !agreed} className="disabled:cursor-not-allowed">获取</Button>
              </div>
              <div className="flex items-center justify-between text-sm">
                <label className="font-medium text-gray-700">账户类型:</label>
@@ -182,7 +185,20 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
                </div>
              )}
 
-             <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" onClick={handleLogin} disabled={loading || !phone || !code}>
+             <div className="flex items-center gap-2 pt-2">
+               <input 
+                 type="checkbox" 
+                 id="privacy-handover" 
+                 className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600 cursor-pointer"
+                 checked={agreed}
+                 onChange={(e) => setAgreed(e.target.checked)}
+               />
+               <label htmlFor="privacy-handover" className="text-xs text-gray-500 cursor-pointer selection:bg-transparent">
+                 我已阅读并完全同意 <a href="/privacy" target="_blank" className="text-blue-600 hover:text-blue-800 hover:underline">《隐私条款》</a> 以及数据接管细则
+               </label>
+             </div>
+
+             <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:cursor-not-allowed" onClick={handleLogin} disabled={loading || !phone || !code || !agreed}>
                 {loading ? '处理中...' : '登录并接管设备'}
              </Button>
           </div>

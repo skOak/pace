@@ -13,6 +13,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MarkdownEditor } from '@/components/ui/markdown-editor';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { useAuth } from '@/components/providers/AuthProvider';
+import { QuotaExceededError } from '@/services/ocr-service';
 import {
   Dialog,
   DialogContent,
@@ -30,7 +33,10 @@ interface AddTaskDialogProps {
 }
 
 export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING, defaultGoalId }: AddTaskDialogProps) {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
+  const [quotaDialogOpen, setQuotaDialogOpen] = useState(false);
+  const [quotaDialogMessage, setQuotaDialogMessage] = useState('');
   const [title, setTitle] = useState('');
   const [estTime, setEstTime] = useState<string>('25');
   const [actTime, setActTime] = useState<string>('15');
@@ -72,7 +78,7 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING,
   const handleCropSave = async (base64Img: string) => {
     setIsProcessingOcr(true);
     try {
-      const resultText = await OcrService.recognizeImage(base64Img);
+      const resultText = await OcrService.recognizeImage(base64Img, !!user);
       if (resultText && resultText.trim()) {
         setBatchText(prev => prev ? prev + '\n' + resultText : resultText);
         setBatchOpen(true);
@@ -81,7 +87,12 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING,
         alert('未识别到有效文本，请重试或检查图片是否清晰。');
       }
     } catch (e: any) {
-      alert(e.message || 'OCR 识别出错');
+      if (e instanceof QuotaExceededError || e.name === 'QuotaExceededError') {
+        setQuotaDialogMessage(e.message);
+        setQuotaDialogOpen(true);
+      } else {
+        alert(e.message || 'OCR 识别出错');
+      }
     } finally {
       setIsProcessingOcr(false);
       // 可选：在这里清理 url，但保持弹窗可能需要重新裁剪（此处假设成功或失败后重置）
@@ -184,7 +195,20 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING,
 
     setLoading(true);
     try {
-      const rawLines = batchText.split('\n').map(l => l.trim()).filter(Boolean);
+      const initialLines = batchText.split('\n').map(l => l.trim()).filter(Boolean);
+      const rawLines: string[] = [];
+      
+      // 预处理：将类似 "英:1.订卷..." 的合并写法拆分成 "英:" 和 "1.订卷..." 两行
+      for (const l of initialLines) {
+        const mixMatch = l.match(/^([a-zA-Z\u4e00-\u9fa5]{1,5}[:：])\s*([-*+]|\d+[.、]\s*.*)/);
+        if (mixMatch) {
+          rawLines.push(mixMatch[1]);
+          rawLines.push(mixMatch[2]);
+        } else {
+          rawLines.push(l);
+        }
+      }
+
       const lines: string[] = [];
       const bulletRegex = /^(?:\[?(?:✓|v|√|✅|☑️|✔️|✔|校内完成)\]?)?\s*(?:[-*+]|\d+[.、])\s*(?:(?:✓|v|√|✅|☑️|✔️|✔)\s*)?$/i;
       const bulletPrefixRegex = /^(?:\[?(?:✓|v|√|✅|☑️|✔️|✔|校内完成)\]?)?\s*(?:[-*+]|\d+[.、])/i;
@@ -669,6 +693,19 @@ export function AddTaskDialog({ onTaskAdded, defaultStatus = TaskStatus.PENDING,
       imageUrl={selectedImageUrl} 
       onCropSave={handleCropSave}
       isProcessing={isProcessingOcr}
+    />
+    <ConfirmDialog
+      open={quotaDialogOpen}
+      onOpenChange={setQuotaDialogOpen}
+      title="识别额度不足"
+      description={quotaDialogMessage || "普通用户的免费识别次数今日已经用尽。是否前往了解升级专业版？"}
+      confirmText="了解专业版"
+      cancelText="暂不需要"
+      onConfirm={() => {
+        // Here you can navigate to upgrade page.
+        // For now, since no router is passed, and user asked to leave blank or navigate to /pro:
+        window.location.href = '/settings';
+      }}
     />
     </>
   );

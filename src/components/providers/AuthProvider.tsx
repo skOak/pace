@@ -36,6 +36,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(data.user)
           setStatus('loggedIn')
           
+          // Silent tracking for admin activity stats
+          fetch('/api/track/active', { method: 'POST' }).catch(() => {});
+          
           // Downward Sync: Cloud to Local Dexie
           try {
             const localProfile = await SettingsService.getProfile();

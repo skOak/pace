@@ -259,51 +259,53 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-gray-100 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <KeyRound className="w-5 h-5 text-blue-500" />
-              腾讯云 OCR 视觉识别配置
-            </CardTitle>
-            <CardDescription>
-              配置您的腾讯云 API 密钥以启用拍照录入功能。这些凭据将通过 AES-GCM 加密，并仅持久化在您本机的浏览器中，绝不会被上传。
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="secretId">SecretId</Label>
-              <Input
-                id="secretId"
-                type="password"
-                placeholder="请输入腾讯云 API 的 SecretId"
-                value={ocrSecretId}
-                onChange={(e) => setOcrSecretId(e.target.value)}
-                className="font-mono text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="secretKey">SecretKey</Label>
-              <Input
-                id="secretKey"
-                type="password"
-                placeholder="请输入腾讯云 API 的 SecretKey"
-                value={ocrSecretKey}
-                onChange={(e) => setOcrSecretKey(e.target.value)}
-                className="font-mono text-sm"
-              />
-            </div>
-          </CardContent>
-          <CardFooter className="bg-gray-50/50 border-t border-gray-100 mt-2 px-6 py-4">
-            <Button onClick={handleSaveOcrSettings} disabled={savingOcr} className="bg-blue-600 hover:bg-blue-700">
-              {savingOcr ? '保存中...' : '保存 OCR 配置'}
-            </Button>
-            {saveOcrSuccess && (
-              <span className="ml-4 text-sm text-emerald-600 flex items-center animate-in fade-in">
-                <CheckCircle2 className="w-4 h-4 mr-1" />已安全加密并保存
-              </span>
-            )}
-          </CardFooter>
-        </Card>
+        {!user && (
+          <Card className="border-gray-100 shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <KeyRound className="w-5 h-5 text-blue-500" />
+                腾讯云 OCR 视觉识别配置
+              </CardTitle>
+              <CardDescription>
+                配置您的腾讯云 API 密钥以启用拍照录入功能。这些凭据将通过 AES-GCM 加密，并仅持久化在您本机的浏览器中，绝不会被上传。
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="secretId">SecretId</Label>
+                <Input
+                  id="secretId"
+                  type="password"
+                  placeholder="请输入腾讯云 API 的 SecretId"
+                  value={ocrSecretId}
+                  onChange={(e) => setOcrSecretId(e.target.value)}
+                  className="font-mono text-sm"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="secretKey">SecretKey</Label>
+                <Input
+                  id="secretKey"
+                  type="password"
+                  placeholder="请输入腾讯云 API 的 SecretKey"
+                  value={ocrSecretKey}
+                  onChange={(e) => setOcrSecretKey(e.target.value)}
+                  className="font-mono text-sm"
+                />
+              </div>
+            </CardContent>
+            <CardFooter className="bg-gray-50/50 border-t border-gray-100 mt-2 px-6 py-4">
+              <Button onClick={handleSaveOcrSettings} disabled={savingOcr} className="bg-blue-600 hover:bg-blue-700">
+                {savingOcr ? '保存中...' : '保存 OCR 配置'}
+              </Button>
+              {saveOcrSuccess && (
+                <span className="ml-4 text-sm text-emerald-600 flex items-center animate-in fade-in">
+                  <CheckCircle2 className="w-4 h-4 mr-1" />已安全加密并保存
+                </span>
+              )}
+            </CardFooter>
+          </Card>
+        )}
 
         <Card className="border-red-100 shadow-sm mt-8">
           <CardHeader className="bg-red-50/50 rounded-t-xl pb-4 border-b border-red-100">

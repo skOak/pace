@@ -12,8 +12,10 @@ export default function AdminLoginPage() {
   const [code, setCode] = useState('')
   const [turnstileToken, setTurnstileToken] = useState('')
   const [loading, setLoading] = useState(false)
+  const [agreed, setAgreed] = useState(false)
 
   const handleSendCode = async () => {
+    if (!/^1[3-9]\d{9}$/.test(phone)) return alert('请输入11位有效的中国内地手机号')
     if (!phone || !turnstileToken) return alert('请通过人机验证并填写手机号')
     setLoading(true)
     const res = await fetch('/api/auth/send-code', {
@@ -25,6 +27,7 @@ export default function AdminLoginPage() {
   }
 
   const handleLogin = async () => {
+    if (!/^1[3-9]\d{9}$/.test(phone)) return alert('请输入11位有效的中国内地手机号')
     setLoading(true)
     const payload = {
         phone,
@@ -68,8 +71,8 @@ export default function AdminLoginPage() {
               />
               <button 
                 onClick={handleSendCode} 
-                disabled={loading || !phone || !turnstileToken}
-                className="bg-gray-100 px-4 rounded-lg text-sm font-medium hover:bg-gray-200 disabled:opacity-50"
+                disabled={loading || !phone || !turnstileToken || !agreed}
+                className="bg-gray-100 px-4 rounded-lg text-sm font-medium hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 获取
               </button>
@@ -80,11 +83,24 @@ export default function AdminLoginPage() {
             <Turnstile siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} onSuccess={setTurnstileToken} />
           </div>
 
+          <div className="flex items-center gap-2 mt-4 mb-2">
+            <input 
+              type="checkbox" 
+              id="privacy" 
+              className="w-4 h-4 rounded border-gray-300 text-slate-900 focus:ring-slate-900 cursor-pointer"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+            />
+            <label htmlFor="privacy" className="text-xs text-gray-500 cursor-pointer selection:bg-transparent">
+              我已阅读并同意 <a href="/privacy" target="_blank" className="text-blue-600 hover:text-blue-800 hover:underline">《隐私条款》</a>
+            </label>
+          </div>
+
           <button 
             type="button" 
             onClick={handleLogin}
-            disabled={loading || !phone || !code}
-            className="w-full py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50"
+            disabled={loading || !phone || !code || !agreed}
+            className="w-full mt-2 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             进入系统
           </button>

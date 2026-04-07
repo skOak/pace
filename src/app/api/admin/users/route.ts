@@ -23,6 +23,11 @@ export async function GET(req: NextRequest) {
         ]
       } : undefined,
       orderBy: { created_at: 'desc' },
+      include: {
+        _count: {
+          select: { tasks: true, habitTemplates: true, goals: true }
+        }
+      },
       take: 50,
     });
 

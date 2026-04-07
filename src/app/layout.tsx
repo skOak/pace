@@ -4,6 +4,7 @@ import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { AuthProvider } from "@/components/providers/AuthProvider";
+import { VisitorTracker } from "@/components/providers/VisitorTracker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -58,6 +59,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-[#F8F9FA]" suppressHydrationWarning>
         <AuthProvider>
+          <VisitorTracker />
           <Sidebar />
           <div className="flex-1 md:pl-72 flex flex-col pb-16 md:pb-0">
             <main className="flex-1 w-full max-w-4xl mx-auto p-4 md:p-8">

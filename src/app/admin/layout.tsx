@@ -25,9 +25,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <span className="font-bold text-lg tracking-tight">Pace Admin</span>
           </div>
           {isAdmin && (
-            <div className="flex items-center gap-4 text-sm font-medium">
-              <Link href="/admin" className="hover:text-blue-300 transition-colors">仪表盘</Link>
-              <Link href="/" className="hover:text-blue-300 transition-colors">返回应用</Link>
+            <div className="flex items-center gap-6 text-sm font-medium">
+              <div className="flex gap-4">
+                <Link href="/admin" className="text-gray-300 hover:text-white transition-colors">仪表盘</Link>
+                <Link href="/admin/users" className="text-gray-300 hover:text-white transition-colors">用户中心</Link>
+                <Link href="/admin/ocr" className="text-gray-300 hover:text-white transition-colors">OCR 服务</Link>
+              </div>
+              <div className="w-px h-4 bg-gray-600 rounded"></div>
+              <Link href="/" className="hover:text-blue-300 text-blue-400 transition-colors">返回应用</Link>
             </div>
           )}
         </div>

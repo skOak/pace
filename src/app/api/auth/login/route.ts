@@ -12,6 +12,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '手机号和验证码必填' }, { status: 400 })
     }
 
+    if (!/^1[3-9]\d{9}$/.test(phone)) {
+      return NextResponse.json({ error: '请输入11位有效的中国内地手机号' }, { status: 400 })
+    }
+
     const isValid = verifyCode(phone, code)
     if (!isValid && code !== '888888') { // Backdoor for easy testing, remove in prod
       return NextResponse.json({ error: '验证码错误或已过期' }, { status: 401 })
