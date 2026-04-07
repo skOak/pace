@@ -35,7 +35,7 @@ export interface SyncQueueItem {
  */
 export const VALID_STATUS_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
   [TaskStatus.DRAFT]: [TaskStatus.PENDING],
-  [TaskStatus.PENDING]: [TaskStatus.RUNNING, TaskStatus.EXPIRED],
+  [TaskStatus.PENDING]: [TaskStatus.RUNNING, TaskStatus.COMPLETED, TaskStatus.EXPIRED],
   [TaskStatus.RUNNING]: [TaskStatus.PAUSED, TaskStatus.COMPLETED],
   [TaskStatus.PAUSED]: [TaskStatus.RUNNING, TaskStatus.COMPLETED, TaskStatus.EXPIRED],
   [TaskStatus.COMPLETED]: [TaskStatus.PENDING, TaskStatus.RUNNING],
