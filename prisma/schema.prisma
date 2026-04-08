@@ -8,7 +8,7 @@ datasource db {
 
 model User {
   uid            String   @id @default(uuid())
-  phone          String   @unique
+  email          String   @unique
   nickname       String   @default("")
   avatar         String   @default("")
   level          String   @default("FREE") // FREE or PRO
@@ -26,6 +26,7 @@ model User {
   dailyAnchors   DailyAnchor[]
   habitTemplates HabitTemplate[]
   goals          Goal[]
+  feedbacks      Feedback[]
 
   @@map("users")
 }
@@ -180,4 +181,21 @@ model SiteVisitLog {
   @@index([date_str])
   @@index([ip, date_str])
   @@map("site_visit_logs")
+}
+
+model Feedback {
+  id         String   @id @default(uuid())
+  content    String
+  images     String[] // 用来储存用户上传后的图片云端 URL 或 Base64
+  status     String   @default("OPEN") // 状态: OPEN(待处理), RESOLVED(已解决), CLOSED(已关闭)
+  reply      String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  userId     String
+  user       User     @relation(fields: [userId], references: [uid], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("feedbacks")
 }

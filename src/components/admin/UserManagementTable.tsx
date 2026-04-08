@@ -5,7 +5,7 @@ import { Search, ShieldAlert, Award, Ban, UserCheck, ChevronDown, ChevronRight, 
 
 type User = {
   uid: string;
-  phone: string;
+  email: string;
   nickname: string;
   role: string;
   level: string;
@@ -82,7 +82,7 @@ export function UserManagementTable({ initialUsers, currentUserUid }: { initialU
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="搜索手机号或昵称..."
+            placeholder="搜索邮箱或昵称..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 pr-4 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-64"
@@ -99,7 +99,7 @@ export function UserManagementTable({ initialUsers, currentUserUid }: { initialU
           <thead className="bg-white border-b border-gray-100">
             <tr>
               <th className="px-6 py-3 font-medium text-gray-500 w-12"></th>
-              <th className="px-6 py-3 font-medium text-gray-500">手机号 / ID</th>
+              <th className="px-6 py-3 font-medium text-gray-500">邮箱 / ID</th>
               <th className="px-6 py-3 font-medium text-gray-500">昵称</th>
               <th className="px-6 py-3 font-medium text-gray-500">状态/角色</th>
               <th className="px-6 py-3 font-medium text-gray-500">会员等级</th>
@@ -117,7 +117,7 @@ export function UserManagementTable({ initialUsers, currentUserUid }: { initialU
                   {isExpanded ? <ChevronDown className="w-5 h-5"/> : <ChevronRight className="w-5 h-5"/>}
                 </td>
                 <td className="px-6 py-4">
-                  <div className="font-medium text-gray-900">{user.phone}</div>
+                  <div className="font-medium text-gray-900">{user.email}</div>
                   <div className="font-mono text-xs text-gray-400 mt-1">{user.uid.slice(0, 8)}...</div>
                 </td>
                 <td className="px-6 py-4">{user.nickname || '-'}</td>

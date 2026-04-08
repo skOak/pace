@@ -6,24 +6,42 @@ import { signToken } from '@/lib/auth'
 
 export async function POST(req: Request) {
   try {
-    const { phone, code, role = 'USER', nickname, avatar, checkOnly } = await req.json()
+    const { email, code, role = 'USER', nickname, avatar, checkOnly } = await req.json()
 
-    if (!phone || !code) {
-      return NextResponse.json({ error: '手机号和验证码必填' }, { status: 400 })
+    if (!email || !code) {
+      return NextResponse.json({ error: '邮箱和验证码必填' }, { status: 400 })
     }
 
-    if (!/^1[3-9]\d{9}$/.test(phone)) {
-      return NextResponse.json({ error: '请输入11位有效的中国内地手机号' }, { status: 400 })
+    const { ALLOWED_EMAIL_DOMAINS } = await import('@/lib/constants');
+    const isValidFormat = /^[a-zA-Z0-9_.-]+@[a-zA-Z0-9_.-]+\.[a-zA-Z0-9_.-]+$/.test(email);
+    const domainPart = email.substring(email.lastIndexOf('@'));
+
+    if (!isValidFormat || !ALLOWED_EMAIL_DOMAINS.includes(domainPart)) {
+      return NextResponse.json({ error: '邮箱格式无效或域名不受支持' }, { status: 400 })
     }
 
-    const isValid = verifyCode(phone, code)
-    if (!isValid && code !== '888888') { // Backdoor for easy testing, remove in prod
-      return NextResponse.json({ error: '验证码错误或已过期' }, { status: 401 })
+    const superAdminEmails = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
+    const isTargetSuperAdmin = superAdminEmails.includes(email.toLowerCase());
+
+    const globalLockConfig = await prisma.systemConfig.findUnique({ where: { key: 'GLOBAL_LOGIN_ENABLED' } });
+    const isGlobalLoginEnabled = globalLockConfig?.value === 'true';
+
+    if (!isGlobalLoginEnabled && !isTargetSuperAdmin) {
+      return NextResponse.json({ error: '系统目前为内测锁定状态，暂不开放公众注册与登录。' }, { status: 403 });
+    }
+
+    const isValid = await verifyCode(email, code)
+    if (!isValid) {
+      if (process.env.NODE_ENV !== 'production' && code === '888888') {
+        console.log(`[AUTH MOCK] 开发环境放行验证码绕过: ${email}`);
+      } else {
+        return NextResponse.json({ error: '验证码错误或已过期' }, { status: 401 })
+      }
     }
 
     // Check if user exists, else create
     let user = await prisma.user.findUnique({
-      where: { phone }
+      where: { email }
     })
 
     if (user && user.role === 'BANNED') {
@@ -31,24 +49,30 @@ export async function POST(req: Request) {
     }
 
     let isNewUser = false
+    const assignedRole = isTargetSuperAdmin ? 'SUPER_ADMIN' : role
+
     if (!user) {
       user = await prisma.user.create({
         data: {
-          phone,
-          role: role,
-          nickname: nickname || `用户_${phone.slice(-4)}`,
+          email,
+          role: assignedRole,
+          nickname: nickname || email.split('@')[0],
           avatar: avatar || ''
         }
       })
       isNewUser = true
-    } else if (nickname || avatar) {
-      user = await prisma.user.update({
-        where: { phone },
-        data: {
-          ...(nickname && { nickname }),
-          ...(avatar && { avatar })
-        }
-      })
+    } else {
+      const needsRoleUpgrade = isTargetSuperAdmin && user.role !== 'SUPER_ADMIN'
+      if (nickname || avatar || needsRoleUpgrade) {
+        user = await prisma.user.update({
+          where: { email },
+          data: {
+            ...(nickname && { nickname }),
+            ...(avatar && { avatar }),
+            ...(needsRoleUpgrade && { role: 'SUPER_ADMIN' })
+          }
+        })
+      }
     }
 
     // Issue JWT
@@ -66,7 +90,7 @@ export async function POST(req: Request) {
         handoverToken: token,
         user: {
           uid: user.uid,
-          phone: user.phone,
+          email: user.email,
           nickname: user.nickname,
           avatar: user.avatar,
           role: user.role,
@@ -91,7 +115,7 @@ export async function POST(req: Request) {
       hasCloudData,
       user: {
         uid: user.uid,
-        phone: user.phone,
+        email: user.email,
         nickname: user.nickname,
         avatar: user.avatar,
         role: user.role,

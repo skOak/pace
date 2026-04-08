@@ -9,10 +9,12 @@ import { useAuth } from '@/components/providers/AuthProvider'
 import { db, hardResetDatabase } from '@/lib/db'
 import { DataService } from '@/services/data-service'
 import { SettingsService } from '@/services/settings-service'
+import { ALLOWED_EMAIL_DOMAINS } from '@/lib/constants'
 
 export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onOpenChange: (o: boolean) => void }) {
   const { refreshAuth } = useAuth()
-  const [phone, setPhone] = useState('')
+  const [emailPrefix, setEmailPrefix] = useState('')
+  const [emailDomain, setEmailDomain] = useState(ALLOWED_EMAIL_DOMAINS[0])
   const [code, setCode] = useState('')
   const [turnstileToken, setTurnstileToken] = useState('')
   const [role, setRole] = useState<'USER'|'ASSISTANT'>('USER')
@@ -26,21 +28,30 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
   const handleSendCode = async () => {
     setErrorMsg('')
     setSuccessMsg('')
-    if (!/^1[3-9]\d{9}$/.test(phone)) return setErrorMsg('请输入11位有效的中国内地手机号')
-    if (!phone || !turnstileToken) return setErrorMsg('请填写手机号并通过人机验证')
+    const email = `${emailPrefix}${emailDomain}`
+    if (!/^[a-zA-Z0-9_.-]+$/.test(emailPrefix)) return setErrorMsg('邮箱前缀格式不正确，只能包含字母、数字、点或下划线')
+    if (!emailPrefix || !turnstileToken) return setErrorMsg('请填写完整的邮箱并通过人机验证')
     setLoading(true)
     const res = await fetch('/api/auth/send-code', {
-      method: 'POST', body: JSON.stringify({ phone, turnstileToken })
+      method: 'POST', body: JSON.stringify({ email, turnstileToken })
     })
     setLoading(false)
-    if (!res.ok) setErrorMsg('发送验证码失败')
-    else setSuccessMsg('验证码已发送 (测试: 888888)')
+    if (!res.ok) {
+       try {
+         const errData = await res.json()
+         setErrorMsg(errData.error || '发送验证码失败')
+       } catch (e) {
+         setErrorMsg('发送验证码失败')
+       }
+    }
+    else setSuccessMsg('验证码已发送 (测试阶段请查收或使用: 888888)')
   }
 
   const handleLogin = async () => {
     setErrorMsg('')
     setSuccessMsg('')
-    if (!/^1[3-9]\d{9}$/.test(phone)) return setErrorMsg('请输入11位有效的中国内地手机号')
+    const email = `${emailPrefix}${emailDomain}`
+    if (!/^[a-zA-Z0-9_.-]+$/.test(emailPrefix)) return setErrorMsg('请输入有效的邮箱前缀')
     setLoading(true)
     const localProfile = await SettingsService.getProfile();
     const localTaskCount = await db.tasks.count()
@@ -48,7 +59,7 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
     const hasLocalData = localTaskCount > 0 || localGoalCount > 0
 
     const payload = { 
-        phone, code, role, 
+        email, code, role, 
         nickname: localProfile?.name || undefined, 
         avatar: localProfile?.avatar || undefined,
         checkOnly: true
@@ -152,10 +163,29 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
         </DialogHeader>
         {step === 'login' ? (
           <div className="space-y-4 pt-4">
-             <Input placeholder="输入您的手机号" value={phone} onChange={e => setPhone(e.target.value)} />
+             <div className="flex flex-col gap-1 text-sm">
+               <label className="font-medium text-gray-700">登录邮箱</label>
+               <div className="flex relative">
+                 <Input 
+                   placeholder="邮箱账号 (如: simon)" 
+                   value={emailPrefix} 
+                   onChange={e => setEmailPrefix(e.target.value)}
+                   className="rounded-e-none border-r-0 focus-visible:z-10 focus-visible:ring-1"
+                 />
+                 <select
+                   className="border border-gray-200 rounded-e-md focus:outline-none focus:ring-1 focus:ring-gray-300 px-2 bg-gray-50 text-gray-600 appearance-none w-36 cursor-pointer"
+                   value={emailDomain}
+                   onChange={e => setEmailDomain(e.target.value)}
+                 >
+                   {ALLOWED_EMAIL_DOMAINS.map(d => (
+                     <option key={d} value={d}>{d}</option>
+                   ))}
+                 </select>
+               </div>
+             </div>
              <div className="flex gap-2">
-               <Input placeholder="短信验证码" value={code} onChange={e => setCode(e.target.value)} />
-               <Button onClick={handleSendCode} disabled={loading || !phone || !turnstileToken || !agreed} className="disabled:cursor-not-allowed">获取</Button>
+               <Input placeholder="邮件验证码" value={code} onChange={e => setCode(e.target.value)} />
+               <Button onClick={handleSendCode} disabled={loading || !emailPrefix || !turnstileToken || !agreed} className="disabled:cursor-not-allowed">获取</Button>
              </div>
              <div className="flex items-center justify-between text-sm">
                <label className="font-medium text-gray-700">账户类型:</label>
@@ -168,7 +198,7 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
                <Turnstile siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} onSuccess={setTurnstileToken} />
                <p className="text-[10px] text-gray-400 text-center leading-tight">
                  💡 提示：目前的 Turnstile 红色警告为主网隔离的测试配置，实际环境会恢复正常。<br/>
-                 内测阶段请使用任意手机号码，并输入万能验证码 <b>888888</b>
+                 内测阶段或开发环境可使用任意邮箱地址，并输入万能验证码 <b>888888</b>
                </p>
              </div>
              
@@ -198,7 +228,7 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
                </label>
              </div>
 
-             <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:cursor-not-allowed" onClick={handleLogin} disabled={loading || !phone || !code || !agreed}>
+             <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:cursor-not-allowed" onClick={handleLogin} disabled={loading || !emailPrefix || !code || !agreed}>
                 {loading ? '处理中...' : '登录并接管设备'}
              </Button>
           </div>

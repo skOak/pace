@@ -18,17 +18,19 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const keysParam = searchParams.get('keys');
-  const targetKey = keysParam === 'ocr_quotas' ? 'ocr_quotas' : 'ocr_configs';
-
-  const config = await prisma.systemConfig.findUnique({
-    where: { key: targetKey }
-  });
   
-  if (targetKey === 'ocr_quotas') {
+  if (keysParam === 'ocr_quotas') {
+    const config = await prisma.systemConfig.findUnique({ where: { key: 'ocr_quotas' } });
     return NextResponse.json({ ocrQuotas: config ? JSON.parse(config.value) : null });
-  } else {
-    return NextResponse.json({ data: config ? JSON.parse(config.value) : [] });
   }
+
+  const configs = await prisma.systemConfig.findMany();
+  const configMap = configs.reduce((acc: Record<string, string>, curr: any) => ({ ...acc, [curr.key]: curr.value }), {});
+  
+  return NextResponse.json({ 
+    configs: configMap,
+    data: configMap['ocr_configs'] ? JSON.parse(configMap['ocr_configs']) : []
+  });
 }
 
 export async function POST(req: Request) {
@@ -36,7 +38,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const body = await req.json();
-  const { ocrConfigs, ocrQuotas } = body;
+  const { ocrConfigs, ocrQuotas, key, value } = body;
   
   if (ocrConfigs) {
     await prisma.systemConfig.upsert({
@@ -51,6 +53,14 @@ export async function POST(req: Request) {
       where: { key: 'ocr_quotas' },
       update: { value: JSON.stringify(ocrQuotas) },
       create: { key: 'ocr_quotas', value: JSON.stringify(ocrQuotas) }
+    });
+  }
+
+  if (key !== undefined && value !== undefined) {
+    await prisma.systemConfig.upsert({
+      where: { key },
+      update: { value: String(value) },
+      create: { key, value: String(value) }
     });
   }
   

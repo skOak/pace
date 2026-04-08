@@ -11,9 +11,10 @@ import { SettingsService } from '@/services/settings-service';
 import { TaskStatus } from '@/lib/types';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { LoginHandoverDialog } from './auth/LoginHandoverDialog';
-import { Cloud, WifiOff, LogOut, RefreshCw } from 'lucide-react';
+import { Cloud, WifiOff, LogOut, RefreshCw, MessageSquarePlus } from 'lucide-react';
 import { db } from '@/lib/db';
 import { ConfirmDialog } from './ConfirmDialog';
+import { FeedbackDialog } from './feedback/FeedbackDialog';
 
 const navItems = [
   { name: '今天', href: '/', icon: Home },
@@ -34,6 +35,7 @@ export function Sidebar() {
   const [profileName, setProfileName] = useState('');
   const [profileAvatar, setProfileAvatar] = useState('');
   const [isOnline, setIsOnline] = useState(true);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   // 实时监听待同步队列数量
   const syncQueueCount = useLiveQuery(() => db.sync_queue.count(), [], 0);
@@ -171,6 +173,7 @@ export function Sidebar() {
       </div>
       
       <LoginHandoverDialog open={loginOpen} onOpenChange={setLoginOpen} />
+      <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
       <ConfirmDialog 
         open={logoutConfirmOpen} 
         onOpenChange={setLogoutConfirmOpen}
@@ -218,7 +221,16 @@ export function Sidebar() {
         )}
       </nav>
       {/* Bottom section if needed */}
-      <div className="p-4 border-t border-gray-100">
+      <div className="p-4 border-t border-gray-100 flex flex-col gap-3">
+        {status === 'loggedIn' && (
+          <button 
+            onClick={() => setFeedbackOpen(true)}
+            className="flex items-center justify-center gap-2 w-full py-2 bg-blue-50/50 hover:bg-blue-100 text-blue-600 rounded-lg text-sm font-medium transition-colors"
+          >
+            <MessageSquarePlus className="w-4 h-4" />
+            <span>意见与问题反馈</span>
+          </button>
+        )}
         <div className="rounded-xl bg-gray-50 p-4">
           <div className="flex justify-between items-center text-xs font-medium text-gray-500 mb-2">
             <span>找到你的节奏 (Find your Pace)</span>

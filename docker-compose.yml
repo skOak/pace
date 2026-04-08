@@ -13,5 +13,12 @@ services:
       - pace_pgdata:/var/lib/postgresql/data
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: pace-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
 volumes:
   pace_pgdata:

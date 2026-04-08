@@ -1,8 +1,11 @@
 import { cookies } from 'next/headers'
+import Link from 'next/link'
 import { verifyToken } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import prisma from '@/lib/prisma'
 import { Users, Activity, Target, ShieldCheck, Flame, Cpu, Eye, UserPlus } from 'lucide-react'
+import { EmailServiceManager } from '@/components/admin/EmailServiceManager'
+import { SystemSecurityPanel } from '@/components/admin/SystemSecurityPanel'
 
 export default async function AdminDashboardPage() {
   const cookieStore = await cookies()
@@ -79,11 +82,14 @@ export default async function AdminDashboardPage() {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start gap-4">
           <div className="p-3 bg-slate-50 text-slate-800 rounded-lg"><ShieldCheck className="w-6 h-6"/></div>
           <div>
-            <div className="text-sm text-gray-500 font-medium pb-1">已注册用户</div>
-            <div className="text-3xl font-bold">{totalUsers}</div>
+             <div className="text-sm text-gray-500 font-medium pb-1">已注册用户</div>
+             <div className="text-3xl font-bold">{totalUsers}</div>
           </div>
         </div>
       </div>
+      
+      <EmailServiceManager />
+      <SystemSecurityPanel />
     </div>
   )
 }

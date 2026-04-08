@@ -69,7 +69,12 @@ export async function POST(req: NextRequest) {
     }
 
     const ext = filename.split(".").pop();
-    const uniqueKey = `uploads/${uid}/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+    
+    // 安全控制允许的子目录
+    const requestedFolder = body.folder || 'uploads';
+    const safeFolder = requestedFolder === 'feedbacks' ? 'feedbacks' : 'uploads';
+    
+    const uniqueKey = `${safeFolder}/${uid}/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
     const bucket = process.env.OSS_BUCKET || "pace-storage";
 
     const command = new PutObjectCommand({

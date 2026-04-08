@@ -30,6 +30,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 <Link href="/admin" className="text-gray-300 hover:text-white transition-colors">仪表盘</Link>
                 <Link href="/admin/users" className="text-gray-300 hover:text-white transition-colors">用户中心</Link>
                 <Link href="/admin/ocr" className="text-gray-300 hover:text-white transition-colors">OCR 服务</Link>
+                <Link href="/admin/feedbacks" className="text-gray-300 hover:text-white transition-colors">工单反馈</Link>
               </div>
               <div className="w-px h-4 bg-gray-600 rounded"></div>
               <Link href="/" className="hover:text-blue-300 text-blue-400 transition-colors">返回应用</Link>

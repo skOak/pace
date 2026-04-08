@@ -7,7 +7,7 @@ export type AuthStatus = 'loading' | 'anonymous' | 'loggedIn'
 
 export type User = {
   uid: string
-  phone: string
+  email: string
   nickname: string
   avatar: string
   role: string
