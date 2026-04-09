@@ -58,8 +58,12 @@ npm run dev
 # 1. 拉取远端仓库代码
 git pull origin main
 
-# 2. 请确保按实际秘钥配置好 .env.production！
-# （包含 POSTGRES_URL、REDIS_URL、S3/OSS 秘钥、短信配置等）
+# 2. 准备生产环境配置（⚠️ 关键坑位回避）
+# 请将实际秘钥写入配置，并务必重命名为 `.env`。
+# 如果使用 .env.production 文件，由于 Prisma 底层工具库限制，会导致其脱序无法读取数据库链接
+# 推荐指令：
+# cp .env.example .env
+# nano .env （完成所需秘钥配置）
 
 # 3. 后台独立启动 Redis 内存队列（若依赖 docker-compose）
 docker-compose up -d redis
