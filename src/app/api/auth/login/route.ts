@@ -6,7 +6,7 @@ import { signToken } from '@/lib/auth'
 
 export async function POST(req: Request) {
   try {
-    const { email, code, role = 'USER', nickname, avatar, checkOnly } = await req.json()
+    const { email, code, nickname, avatar, checkOnly } = await req.json()
 
     if (!email || !code) {
       return NextResponse.json({ error: '邮箱和验证码必填' }, { status: 400 })
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     }
 
     let isNewUser = false
-    const assignedRole = isTargetSuperAdmin ? 'SUPER_ADMIN' : role
+    const assignedRole = isTargetSuperAdmin ? 'SUPER_ADMIN' : 'USER'
 
     if (!user) {
       user = await prisma.user.create({

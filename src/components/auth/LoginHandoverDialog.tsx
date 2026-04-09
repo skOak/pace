@@ -17,7 +17,6 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
   const [emailDomain, setEmailDomain] = useState(ALLOWED_EMAIL_DOMAINS[0])
   const [code, setCode] = useState('')
   const [turnstileToken, setTurnstileToken] = useState('')
-  const [role, setRole] = useState<'USER'|'ASSISTANT'>('USER')
   const [step, setStep] = useState<'login' | 'handover'>('login')
   const [loading, setLoading] = useState(false)
   const [handoverToken, setHandoverToken] = useState('')
@@ -59,7 +58,7 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
     const hasLocalData = localTaskCount > 0 || localGoalCount > 0
 
     const payload = { 
-        email, code, role, 
+        email, code, 
         nickname: localProfile?.name || undefined, 
         avatar: localProfile?.avatar || undefined,
         checkOnly: true
@@ -187,13 +186,7 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
                <Input placeholder="邮件验证码" value={code} onChange={e => setCode(e.target.value)} />
                <Button onClick={handleSendCode} disabled={loading || !emailPrefix || !turnstileToken || !agreed} className="disabled:cursor-not-allowed">获取</Button>
              </div>
-             <div className="flex items-center justify-between text-sm">
-               <label className="font-medium text-gray-700">账户类型:</label>
-               <select className="border border-gray-200 rounded p-1.5 focus:outline-none" value={role} onChange={e => setRole(e.target.value as any)}>
-                 <option value="USER">标准用户计划 (标准权限)</option>
-                 <option value="ASSISTANT">协助者计划 (协助权限)</option>
-               </select>
-             </div>
+
              <div className="my-2 flex flex-col items-center gap-1 justify-center">
                <Turnstile siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} onSuccess={setTurnstileToken} />
                {process.env.NODE_ENV !== 'production' && (
