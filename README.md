@@ -28,17 +28,71 @@ Pace 是一款**本地优先 (Local-First)** 的个人任务与节奏管理应�
 * **本地化数据库**：Dexie.js (IndexedDB)
 * **测试与断言**：Vitest
 
-## 🚀 快速开始
+## 🚀 本地开发快速开始
 
 ```bash
-# 1. 安装依赖包
+# 1. 下载代码并安装依赖包
 npm install
 
-# 2. 启动本地开发服务器
-npm run dev
+# 2. 启动基础所需服务 (PostgreSQL / Redis)
+docker-compose up -d
 
-# 3. 访问你的本地看板启动人生节奏
-# 打开浏览器并访问 http://localhost:3000
+# 3. 配置开发环境变量与数据库同步
+cp .env.example .env.development
+npx prisma generate
+npx prisma db push
+
+# 4. 启动本地开发服务器
+npm run dev
+# 访问 http://localhost:3000 打卡进入
+```
+
+## 🌍 线上生产环境部署
+
+要在全新的云服务器（如 Ubuntu / CentOS）上部署发布版，请严格按照以下 “四步走” 标准基线操作：
+
+```bash
+# ==========================================
+# 第一步：准备环境与后台守护支撑
+# ==========================================
+# 1. 拉取远端仓库代码
+git pull origin main
+
+# 2. 请确保按实际秘钥配置好 .env.production！
+# （包含 POSTGRES_URL、REDIS_URL、S3/OSS 秘钥、短信配置等）
+
+# 3. 后台独立启动 Redis 内存队列（若依赖 docker-compose）
+docker-compose up -d redis
+
+# ==========================================
+# 第二步：安装与数据库强制同步
+# ==========================================
+# 安装 Node 生产依赖
+npm install 
+
+# 生成 Prisma 客户端类型映射
+npx prisma generate
+
+# 【核心必做】将最新的数据模型覆盖到远端 PG 数据库中建表
+npx prisma db push 
+
+# ==========================================
+# 第三步：生产模式封包构建
+# ==========================================
+npm run build
+
+# ==========================================
+# 第四步：守护态后台常驻服务
+# ==========================================
+# 全局安装守护进程工具 PM2
+npm install pm2 -g
+
+# 以生产强守卫模式挂载服务，并命名为 pace-app
+pm2 start npm --name "pace-app" -- run start
+
+# 常用运维指令
+# pm2 logs pace-app (查看崩溃和打印日志)
+# pm2 restart pace-app (重启)
 ```
 
 ## 🤖 署名与致谢
