@@ -23,7 +23,7 @@ export default function AdminLoginPage() {
     })
     setLoading(false)
     if (!res.ok) alert('发送失败')
-    else alert('验证码发送成功 (内测可用 888888)')
+    else alert(process.env.NODE_ENV !== 'production' ? '验证码发送成功 (开发环境可用: 888888)' : '验证码已发送，请前往您的邮箱查收')
   }
 
   const handleLogin = async () => {

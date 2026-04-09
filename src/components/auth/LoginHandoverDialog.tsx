@@ -44,7 +44,7 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
          setErrorMsg('发送验证码失败')
        }
     }
-    else setSuccessMsg('验证码已发送 (测试阶段请查收或使用: 888888)')
+    else setSuccessMsg(process.env.NODE_ENV !== 'production' ? '验证码已发送 (开发环境可用: 888888)' : '验证码已发送，请前往您的邮箱查收')
   }
 
   const handleLogin = async () => {
@@ -196,10 +196,12 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
              </div>
              <div className="my-2 flex flex-col items-center gap-1 justify-center">
                <Turnstile siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} onSuccess={setTurnstileToken} />
-               <p className="text-[10px] text-gray-400 text-center leading-tight">
-                 💡 提示：目前的 Turnstile 红色警告为主网隔离的测试配置，实际环境会恢复正常。<br/>
-                 内测阶段或开发环境可使用任意邮箱地址，并输入万能验证码 <b>888888</b>
-               </p>
+               {process.env.NODE_ENV !== 'production' && (
+                 <p className="text-[10px] text-gray-400 text-center leading-tight">
+                   💡 开发提示：目前的 Turnstile 为测试配置，正式编译会自动隐藏此栏。<br/>
+                   内测阶段可使用任意邮箱地址，并输入万能验证码 <b>888888</b>
+                 </p>
+               )}
              </div>
              
              {errorMsg && (
