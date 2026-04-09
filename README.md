@@ -65,8 +65,9 @@ git pull origin main
 # cp .env.example .env
 # nano .env （完成所需秘钥配置）
 
-# 3. 后台独立启动 Redis 内存队列（若依赖 docker-compose）
-docker-compose up -d redis
+# 3. 后台独立启动基础支撑组件（如果线上机器使用了本项目自带的 docker-compose）
+# 这将同时唤醒 Redis 内存队列与云端 PostgreSQL 数据库（如果您没有使用外部 RDS 云数据库的话）
+docker-compose up -d
 
 # ==========================================
 # 第二步：安装与数据库强制同步

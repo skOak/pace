@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   }
 
   const configs = await prisma.systemConfig.findMany();
-  const configMap = configs.reduce((acc: Record<string, string>, curr: any) => ({ ...acc, [curr.key]: curr.value }), {});
+  const configMap: Record<string, string> = configs.reduce((acc: any, curr: any) => ({ ...acc, [curr.key]: curr.value }), {});
   
   return NextResponse.json({ 
     configs: configMap,

@@ -23,7 +23,7 @@ export async function GET(req: Request) {
 
       const todayCount = await prisma.feedback.count({
         where: {
-          userId: payload.uid,
+          userId: String(payload.uid),
           created_at: { gte: todayStart }
         }
       });
@@ -36,7 +36,7 @@ export async function GET(req: Request) {
     }
 
     const feedbacks = await prisma.feedback.findMany({
-      where: { userId: payload.uid },
+      where: { userId: String(payload.uid) },
       orderBy: { created_at: 'desc' },
     });
 
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
 
     const todayCount = await prisma.feedback.count({
       where: {
-        userId: payload.uid,
+        userId: String(payload.uid),
         created_at: { gte: todayStart }
       }
     });
@@ -101,7 +101,7 @@ export async function POST(req: Request) {
 
     const newFeedback = await prisma.feedback.create({
       data: {
-        userId: payload.uid,
+        userId: String(payload.uid),
         content: content.trim(),
         images: validImages,
       }

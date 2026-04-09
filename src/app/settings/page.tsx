@@ -198,9 +198,9 @@ export default function SettingsPage() {
                   onChange={(e) => setProfileName(e.target.value)}
                   className="max-w-md"
                 />
-                {user?.phone && (
+                {user?.email && (
                   <p className="text-xs text-gray-400 mt-1">
-                    当前云端账号: {user.phone}
+                    当前云端账号: {user.email}
                   </p>
                 )}
               </div>
