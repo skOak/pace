@@ -129,6 +129,55 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
     try {
       await confirmSession(token);
 
+      // --- Avatar upload & Profile Sync logic ---
+      try {
+        const meRes = await fetch('/api/auth/me');
+        if (meRes.ok) {
+          const { user } = await meRes.json();
+          const cloudName = user?.nickname;
+          const cloudAvatar = user?.avatar;
+          
+          if (!cloudName && !cloudAvatar) {
+            // Cloud is empty. We are safe to promote the local offline profile to the cloud.
+            const profile = await SettingsService.getProfile();
+            if (profile) {
+              if (profile.avatar && profile.avatar.startsWith('data:')) {
+                const res = await fetch(profile.avatar);
+                const blob = await res.blob();
+                const file = new File([blob], 'avatar.webp', { type: 'image/webp' });
+
+                const presignRes = await fetch('/api/oss/upload-url', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size, folder: 'avatars' })
+                });
+
+                if (presignRes.ok) {
+                  const { uploadUrl, fileUrl } = await presignRes.json();
+                  const uploadRes = await fetch(uploadUrl, { method: 'PUT', body: file, headers: {'Content-Type': file.type} });
+                  if (uploadRes.ok) {
+                    profile.avatar = fileUrl;
+                    await SettingsService.setProfile(profile.name, profile.avatar);
+                  }
+                }
+              }
+              
+              await fetch('/api/auth/me', {
+                method: 'PATCH',
+                body: JSON.stringify({ nickname: profile.name, avatar: profile.avatar }),
+                headers: { 'Content-Type': 'application/json' }
+              });
+            }
+          } else {
+            // Cloud profile already exists! Adopt cloud profile locally instead of overwriting.
+            await SettingsService.setProfile(cloudName || '', cloudAvatar || '');
+          }
+        }
+      } catch (profileErr) {
+        console.warn('Avatar/profile sync during handover failed, skipping...', profileErr);
+      }
+      // --- END Avatar upload logic ---
+
       const [tasks, execution_logs, daily_anchors, habit_templates, goals, goal_comments] = await Promise.all([
         db.tasks.toArray(),
         db.execution_logs.toArray(),

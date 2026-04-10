@@ -55,7 +55,44 @@ export default function SettingsPage() {
     setSavingProfile(true);
     setSaveProfileSuccess(false);
     try {
-      await SettingsService.setProfile(profileName, profileAvatar);
+      let finalAvatarUrl = profileAvatar;
+
+      // 如果属于内嵌的 Base64 产物且处于登录态，发起安全的直传拦截
+      if (user && profileAvatar.startsWith('data:')) {
+        try {
+          const res = await fetch(profileAvatar);
+          const blob = await res.blob();
+          const file = new File([blob], 'avatar.webp', { type: 'image/webp' });
+
+          const presignRes = await fetch('/api/oss/upload-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              filename: file.name,
+              contentType: file.type,
+              size: file.size,
+              folder: 'avatars'
+            })
+          });
+
+          if (presignRes.ok) {
+            const { uploadUrl, fileUrl } = await presignRes.json();
+            const uploadRes = await fetch(uploadUrl, {
+              method: 'PUT',
+              body: file,
+              headers: { 'Content-Type': file.type }
+            });
+            if (uploadRes.ok) {
+              finalAvatarUrl = fileUrl;
+              setProfileAvatar(fileUrl);
+            }
+          }
+        } catch (ossError) {
+          console.warn('OSS 直传头像失败，降级保存本地 Base64:', ossError);
+        }
+      }
+
+      await SettingsService.setProfile(profileName, finalAvatarUrl);
       // 派发自定义全局事件，使得 Sidebar 能够立刻监听到最新的资料并刷新
       window.dispatchEvent(new Event('pace_profile_updated'));
 
@@ -63,7 +100,7 @@ export default function SettingsPage() {
       if (user) {
         await fetch('/api/auth/me', {
           method: 'PATCH',
-          body: JSON.stringify({ nickname: profileName, avatar: profileAvatar }),
+          body: JSON.stringify({ nickname: profileName, avatar: finalAvatarUrl }),
           headers: { 'Content-Type': 'application/json' }
         });
       }
@@ -228,7 +265,8 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle>数据备份与恢复</CardTitle>
             <CardDescription>
-              将你的所有任务和历史记录导出为本地文件，或从文件中恢复。Pace 的数据仅保存在你的浏览器中，不会上传到任何服务器。
+              将你的所有任务和历史记录导出为本地文件，或从文件中恢复。Pace 的数据默认仅保存在你的浏览器中。<br/>
+              <span className="text-amber-600 font-medium">⚠️ 注意：为保证数据跨设备迁移，导出的 JSON 文件将以【明文】形式包含您配置的 OCR 密钥等敏感信息！请务必妥善保管该备份文件，切勿将其发送至公开网络。</span>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -351,11 +389,31 @@ export default function SettingsPage() {
         open={confirmClearOpen}
         onOpenChange={setConfirmClearOpen}
         title="清空所有记录"
-        description="警告：此操作将永久抹除您所有的任务、统计数据和预估洞察记录，恢复为出厂空状态。由于没有云端备份，此操作绝对不可逆，请三思而后行。"
+        description={user 
+          ? "警告：此操作将永久抹除您【云端和本地】的所有记录（包含任务、小记、习惯、目标与设置），将账号恢复为初生空状态。此操作绝对不可逆，请三思而后行。"
+          : "警告：此操作将永久抹除您所有的本地数据，恢复为出厂空状态。此操作绝对不可逆，请三思而后行。"
+        }
         confirmText="永久清空"
         cancelText="取消"
         isDestructive={true}
         onConfirm={async () => {
+          if (user) {
+            // 洗白云端数据库
+            await fetch('/api/sync/import-local', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                tasks: [], execution_logs: [], daily_anchors: [],
+                habit_templates: [], goals: [], goal_comments: []
+              })
+            });
+            // 洗白云端用户画像
+            await fetch('/api/auth/me', {
+              method: 'PATCH',
+              body: JSON.stringify({ nickname: '', avatar: '' }),
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
           await DataService.clearAllData();
           window.location.href = '/';
         }}
