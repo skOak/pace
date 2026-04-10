@@ -8,4 +8,5 @@ export const ALLOWED_EMAIL_DOMAINS = [
   '@foxmail.com',
   '@icloud.com',
   '@yahoo.com',
+  '@hemin.vip'
 ];
