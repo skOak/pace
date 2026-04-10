@@ -80,7 +80,7 @@ export default function AdminLoginPage() {
           </div>
           
           <div className="my-2 flex flex-col items-center gap-1 justify-center">
-            <Turnstile siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} onSuccess={setTurnstileToken} />
+            <Turnstile siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} options={{ language: 'zh-cn' }} onSuccess={setTurnstileToken} />
           </div>
 
           <div className="flex items-center gap-2 mt-4 mb-2">

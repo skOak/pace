@@ -188,7 +188,7 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
              </div>
 
              <div className="my-2 flex flex-col items-center gap-1 justify-center">
-               <Turnstile siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} onSuccess={setTurnstileToken} />
+               <Turnstile siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} options={{ language: 'zh-cn' }} onSuccess={setTurnstileToken} />
                {process.env.NODE_ENV !== 'production' && (
                  <p className="text-[10px] text-gray-400 text-center leading-tight">
                    💡 开发提示：目前的 Turnstile 为测试配置，正式编译会自动隐藏此栏。<br/>
