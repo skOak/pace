@@ -37,6 +37,16 @@ export async function POST(req: Request) {
         const stringId = op.recordId.toString();
         // Numeric local id for tasks and execution logs
         const localId = typeof op.recordId === 'number' ? op.recordId : parseInt(stringId, 10);
+        // Data normalization for legacy locally cached Numeric enums
+        if (data && typeof data.status === 'number') {
+           if (table === 'tasks') {
+              const taskEnumMap = ['DRAFT', 'PENDING', 'RUNNING', 'PAUSED', 'COMPLETED', 'EXPIRED'];
+              data.status = taskEnumMap[data.status] || 'DRAFT';
+           } else if (table === 'goals') {
+              const goalEnumMap = ['ACTIVE', 'DONE', 'ARCHIVED'];
+              data.status = goalEnumMap[data.status] || 'ACTIVE';
+           }
+        }
 
         try {
           if (table === 'tasks') {
