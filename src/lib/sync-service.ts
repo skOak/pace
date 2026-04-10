@@ -86,8 +86,9 @@ export const SyncService = {
             await db.sync_queue.bulkDelete(opIds);
             window.dispatchEvent(new Event('pace_sync_success'));
          } else if (res.status === 401) {
-            // 未登录，清空队列不再触发
+            // 未登录，清空队列不再触发，并通知认证提供者全局踢出登出态
             await db.sync_queue.clear();
+            window.dispatchEvent(new Event('pace_force_logout'));
          }
        } catch (e) {
          console.warn("Background sync failed, will retry later", e);

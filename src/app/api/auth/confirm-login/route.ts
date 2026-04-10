@@ -7,8 +7,16 @@ export async function POST(req: Request) {
     const { token } = await req.json()
     if (!token) return NextResponse.json({ error: 'Token missing' }, { status: 400 })
     
-    const payload = await verifyToken(token)
+    const payload = await verifyToken(token, { ignoreSessionLimit: true })
     if (!payload) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+
+    if (payload.uid && payload.iat) {
+      const { redis } = await import('@/lib/verificationStore')
+      if (redis) {
+        // Record the newest IAT for this user to supersede all older JWTs
+        await redis.setex(`active_session_iat:${payload.uid}`, 30 * 24 * 60 * 60, payload.iat.toString())
+      }
+    }
 
     const cookieStore = await cookies()
     cookieStore.set({

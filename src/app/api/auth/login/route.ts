@@ -76,7 +76,7 @@ export async function POST(req: Request) {
     }
 
     // Issue JWT
-    const token = await signToken({ uid: user.uid, role: user.role })
+    const token = await signToken({ uid: user.uid, role: user.role, level: user.level })
 
     const taskCount = await prisma.task.count({ where: { userId: user.uid } })
     const goalCount = await prisma.goal.count({ where: { userId: user.uid } })
