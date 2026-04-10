@@ -104,3 +104,17 @@ pm2 start npm --name "pace-app" -- run start
 
 本应用的 MVP 敏捷迭代开发阶段（Sprint 1 ~ Sprint 11）采用了前沿的协同模式构建：
 由开发者独立主导产品需求规划、UI 交互风格定义与技术选型；并在核心逻辑代码的结对编程（Pair Programming）与迭代验收阶段，由 **Antigravity (by Google DeepMind)** 作为 Agentic AI 辅助完成模块编写、交互组件级还原及自动化代码测试的落地。
+
+## 📄 开源许可证 (License)
+
+本项目采用 **Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0)** 协议进行开源分发。
+
+✅ **你可以：**
+- **分享/克隆**：在任何媒介或格式下复制、发行本项目的全部或部分代码。
+- **修改/演绎**：修改源文件、二次开发、或者以此项目为基础进行个人的学习、研究和部署。
+
+🚫 **限制条款：**
+- **非商业用途 (Non-Commercial)**：**严禁将本项目及其衍生作品用于任何商业目的。** （包括但不限于：付费订阅墙、商业化的 SaaS 服务部署、内嵌广告变现、售卖二次封装的代码或服务等。）
+- **署名 (Attribution)**：如果你分发了本项目的修改版本或衍生品，你必须给出适当的署名，提供指向本许可证的链接，同时标明是否对原始代码作出了修改。
+
+完整的许可协议内容请参阅根目录下的 [LICENSE](./LICENSE) 文件。
