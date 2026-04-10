@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
-import { Turnstile } from '@marsidev/react-turnstile'
+import React, { useState, useRef } from 'react'
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,6 +23,7 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   const [agreed, setAgreed] = useState(false)
+  const turnstileRef = useRef<TurnstileInstance>(null)
 
   React.useEffect(() => {
     if (!open) {
@@ -212,8 +213,23 @@ export function LoginHandoverDialog({ open, onOpenChange }: { open: boolean, onO
               <Button onClick={handleSendCode} disabled={loading || !emailPrefix || !turnstileToken || !agreed} className="disabled:cursor-not-allowed">获取</Button>
             </div>
 
-            <div className="my-2 flex flex-col items-center gap-1 justify-center">
-              <Turnstile siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} options={{ language: 'zh-cn' }} onSuccess={setTurnstileToken} />
+            <div className="my-2 flex flex-col items-center gap-1 justify-center min-h-[65px]">
+              <Turnstile 
+                ref={turnstileRef}
+                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} 
+                options={{ language: 'zh-cn' }} 
+                onSuccess={setTurnstileToken} 
+                onExpire={() => {
+                  setTurnstileToken('');
+                  setErrorMsg('人机验证已超时过期，请点击重新验证。');
+                  turnstileRef.current?.reset();
+                }}
+                onError={() => {
+                  setTurnstileToken('');
+                  setErrorMsg('验证组件遇到网络异常，系统已自动尝试重连，请稍候。');
+                  turnstileRef.current?.reset();
+                }}
+              />
               {process.env.NODE_ENV !== 'production' && (
                 <p className="text-[10px] text-gray-400 text-center leading-tight">
                   💡 开发提示：目前的 Turnstile 为测试配置，正式编译会自动隐藏此栏。<br />
