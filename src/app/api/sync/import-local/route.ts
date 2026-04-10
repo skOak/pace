@@ -40,19 +40,23 @@ export async function POST(req: Request) {
       // 2. Insert Goals (UUIDs can be preserved directly)
       if (goals.length > 0) {
         await tx.goal.createMany({
-          data: goals.map((g: any) => ({
-            id: g.id,
-            title: g.title,
-            description: g.description,
-            total_estimated_duration: g.total_estimated_duration,
-            deadline: g.deadline,
-            difficulty: g.difficulty,
-            confidence: g.confidence,
-            status: g.status,
-            created_at: new Date(g.created_at),
-            updated_at: g.updated_at ? new Date(g.updated_at) : null,
-            userId
-          }))
+          data: goals.map((g: any) => {
+            const goalEnumMap = ['ACTIVE', 'DONE', 'ARCHIVED'];
+            const normalizedStatus = typeof g.status === 'number' ? (goalEnumMap[g.status] || 'ACTIVE') : g.status;
+            return {
+              id: g.id,
+              title: g.title,
+              description: g.description,
+              total_estimated_duration: g.total_estimated_duration,
+              deadline: g.deadline,
+              difficulty: g.difficulty,
+              confidence: g.confidence,
+              status: normalizedStatus,
+              created_at: new Date(g.created_at),
+              updated_at: g.updated_at ? new Date(g.updated_at) : null,
+              userId
+            };
+          })
         })
       }
 
@@ -108,13 +112,15 @@ export async function POST(req: Request) {
       // 6. Insert Tasks sequentially to remap the numeric IDs
       const taskIdMap = new Map<number, number>()
       for (const task of tasks) {
+        const taskEnumMap = ['DRAFT', 'PENDING', 'RUNNING', 'PAUSED', 'COMPLETED', 'EXPIRED'];
+        const normalizedStatus = typeof task.status === 'number' ? (taskEnumMap[task.status] || 'DRAFT') : task.status;
         const newTask = await tx.task.create({
           data: {
             local_id: task.id,
             title: task.title,
             est_time: task.est_time,
             act_time: task.act_time,
-            status: task.status,
+            status: normalizedStatus,
             tags: task.tags || [],
             is_school_done: task.is_school_done,
             date: task.date,
@@ -148,7 +154,7 @@ export async function POST(req: Request) {
             endTime: log.endTime ? new Date(log.endTime) : null,
             userId
           }))
-        
+
         if (mappedLogs.length > 0) {
           await tx.executionLog.createMany({
             data: mappedLogs
@@ -163,6 +169,9 @@ export async function POST(req: Request) {
 
   } catch (error) {
     console.error('Import local error:', error)
-    return NextResponse.json({ error: '合并数据失败，请稍后重试' }, { status: 500 })
+    // 发生合并错误时，主动在核心链路切断已派发的 Cookie，防止产生“半只脚进入服务端但本地数据丢在门外”的僵尸状态
+    const cookieStore = await cookies()
+    cookieStore.delete('auth_token')
+    return NextResponse.json({ error: '合并数据失败，请稍后重试，当前身份已安全释放' }, { status: 500 })
   }
 }

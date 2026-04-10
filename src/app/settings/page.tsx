@@ -72,7 +72,7 @@ export default function SettingsPage() {
       setTimeout(() => setSaveProfileSuccess(false), 3000);
     } catch (e) {
       console.error('保存资料报错', e);
-      alert('保存失败，请检查或重试');
+      setNoticeMsg('保存失败，请检查或重试');
     } finally {
       setSavingProfile(false);
     }
@@ -103,7 +103,7 @@ export default function SettingsPage() {
       setTimeout(() => setSaveOcrSuccess(false), 3000);
     } catch (e) {
       console.error('保存 OCR 设置报错', e);
-      alert('保存失败，请验证环境或重试');
+      setNoticeMsg('保存失败，请验证环境或重试');
     } finally {
       setSavingOcr(false);
     }
@@ -114,31 +114,37 @@ export default function SettingsPage() {
       await DataService.downloadExportFile();
     } catch (error) {
       console.error('导出失败:', error);
-      alert('导出备份失败');
+      setNoticeMsg('导出备份失败');
     }
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [noticeMsg, setNoticeMsg] = useState('');
+
+  const [confirmImportOpen, setConfirmImportOpen] = useState(false);
+  const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!confirm('警告：导入备份将覆盖所有现有数据，且不可恢复。是否确认继续？')) {
-      e.target.value = '';
-      return;
-    }
+    setPendingImportFile(file);
+    setConfirmImportOpen(true);
+    e.target.value = '';
+  };
 
+  const handleConfirmImport = async () => {
+    if (!pendingImportFile) return;
     setImporting(true);
     try {
-      const text = await file.text();
+      const text = await pendingImportFile.text();
       await DataService.importData(text);
-      alert('数据恢复成功！');
       window.location.href = '/'; // 恢复后刷新到首页
     } catch (error) {
       console.error('导入失败:', error);
-      alert('恢复备份失败，请检查文件格式是否正确。');
+      setNoticeMsg('恢复备份失败，请检查文件格式是否正确。');
     } finally {
       setImporting(false);
-      e.target.value = '';
+      setPendingImportFile(null);
     }
   };
 
@@ -353,6 +359,30 @@ export default function SettingsPage() {
           await DataService.clearAllData();
           window.location.href = '/';
         }}
+      />
+
+      <ConfirmDialog
+        open={confirmImportOpen}
+        onOpenChange={(isOpen) => {
+          setConfirmImportOpen(isOpen);
+          if (!isOpen && !importing) setPendingImportFile(null);
+        }}
+        title="导入数据恢复"
+        description="警告：导入备份将覆盖所有现有数据，且不可恢复。是否确认继续？"
+        confirmText={importing ? "恢复中..." : "确认覆盖"}
+        cancelText="取消"
+        isDestructive={true}
+        onConfirm={handleConfirmImport}
+      />
+
+      <ConfirmDialog
+        open={!!noticeMsg}
+        onOpenChange={() => setNoticeMsg('')}
+        title="提示"
+        description={noticeMsg}
+        cancelText="我知道了"
+        hideCancel={true}
+        onConfirm={() => setNoticeMsg('')}
       />
     </div>
   );
