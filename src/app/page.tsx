@@ -186,8 +186,9 @@ export default function TodayPage() {
     setIsTransitioning(true);
     
     setTimeout(async () => {
+      setSelectedTask(task); // 先触发大视图加载（注册当前要查看的任务ID）
       await action();
-      await loadTasks();
+      await loadTasks(); // loadTasks 内部会获取最新数据，并自动将 selectedTask 刷新为执行中的最新状态
       // 在完成获取数据和执行请求后再稍等片刻让淡出平滑
       setTimeout(() => setIsTransitioning(false), 500);
     }, 800);
@@ -569,7 +570,7 @@ export default function TodayPage() {
 
       {/* 沉浸动画转场遮罩 */}
       {isTransitioning && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/95 backdrop-blur-sm animate-in fade-in duration-500">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/95 backdrop-blur-sm animate-in fade-in duration-500">
           <div className="text-center animate-in zoom-in-95 duration-500 delay-150">
             <h2 className="text-2xl font-light text-white opacity-90 tracking-widest mb-4">
               深呼吸{profileName ? `，${profileName}` : ''}
