@@ -260,7 +260,7 @@ export function FeedbackDialog({ open, onOpenChange }: { open: boolean, onOpenCh
                     <div className="flex justify-between items-start gap-2">
                       <div className="text-sm text-gray-700 whitespace-pre-wrap">{fb.content}</div>
                       <div className="shrink-0">
-                        {fb.status === 'PENDING' ? (
+                        {fb.status === 'OPEN' ? (
                           <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                             <Clock className="w-3 h-3" /> 待处理
                           </span>
