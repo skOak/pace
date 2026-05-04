@@ -1,7 +1,7 @@
 import prisma from '@/lib/prisma';
 import { Resend } from 'resend';
 
-export async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
+export async function sendEmail({ to, subject, html, from }: { to: string; subject: string; html: string; from?: string }) {
   // 1. 获取数据库中的主选记录
   const config = await prisma.systemConfig.findUnique({ where: { key: 'PRIMARY_MAIL_PROVIDER' } });
   const primaryProvider = config?.value === 'SMTP2GO' ? 'SMTP2GO' : 'RESEND';
@@ -12,7 +12,7 @@ export async function sendEmail({ to, subject, html }: { to: string; subject: st
 
     const resend = new Resend(resendApiKey);
     const { error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'Pace <noreply@pace.app>',
+      from: from || process.env.EMAIL_FROM || 'Pace <noreply@pace.app>',
       to,
       subject,
       html
@@ -31,7 +31,7 @@ export async function sendEmail({ to, subject, html }: { to: string; subject: st
       body: JSON.stringify({
         api_key: smtp2goApiKey,
         to: [to],
-        sender: process.env.EMAIL_FROM || 'Pace <noreply@pace.app>',
+        sender: from || process.env.EMAIL_FROM || 'Pace <noreply@pace.app>',
         subject: subject,
         html_body: html
       })

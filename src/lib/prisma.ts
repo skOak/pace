@@ -13,7 +13,12 @@ declare global {
   var prismaGlobal2: undefined | ReturnType<typeof prismaClientSingleton>
 }
 
+import { startFeedbackNotifier } from './feedbackNotifier'
+
 const prisma = globalThis.prismaGlobal2 ?? prismaClientSingleton()
+
+// 启动后台定时器（10分钟巡检一次用户反馈）
+startFeedbackNotifier()
 
 export default prisma
 
