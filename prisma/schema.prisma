@@ -52,6 +52,8 @@ model Task {
   skip_reason                String?
   goal_id                    String?
   is_session                 Boolean?
+  is_adjusted                Boolean  @default(false)
+  adjustment_reason          String?
 
   userId                     String
   user                       User     @relation(fields: [userId], references: [uid], onDelete: Cascade)

@@ -82,6 +82,10 @@ export interface Task {
   goal_id?: string;
   /** 是否为目标的执行片段 (Sprint 11) */
   is_session?: boolean;
+  /** 是否经过人工追溯修正 (Sprint 18) */
+  is_adjusted?: boolean;
+  /** 追溯修正的原因 (Sprint 18) */
+  adjustment_reason?: string;
 }
 
 /** 创建任务时的输入参数（省略自动生成的字段） */
@@ -101,6 +105,8 @@ export interface CreateTaskInput {
   template_id?: string;
   goal_id?: string;
   is_session?: boolean;
+  is_adjusted?: boolean;
+  adjustment_reason?: string;
 }
 
 /** 更新任务时的可选字段 */

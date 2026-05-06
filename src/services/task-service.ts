@@ -40,6 +40,8 @@ export class TaskService {
       template_id: input.template_id,
       goal_id: input.goal_id,
       is_session: input.is_session,
+      is_adjusted: input.is_adjusted,
+      adjustment_reason: input.adjustment_reason,
     };
 
     const id = await db.tasks.add(task);

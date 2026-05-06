@@ -1,7 +1,8 @@
 import { TaskService } from './task-service';
 import { ExecutionLogService } from './execution-log-service';
 import { DailyAnchorService } from './daily-anchor-service';
-import { TaskStatus, type Task } from '@/lib/types';
+import { TaskStatus, type Task, type ExecutionLog } from '@/lib/types';
+import { db } from '@/lib/db';
 
 /**
  * TaskExecutionService
@@ -124,5 +125,141 @@ export class TaskExecutionService {
        await DailyAnchorService.setEndAnchor(today);
     }
     return count;
+  }
+
+  /**
+   * 检查时间区间是否与当天其他任务的记录冲突
+   */
+  static async checkTimeConflict(taskId: number | undefined, start: Date, end: Date, dateStr: string): Promise<Task | null> {
+    const allTasks = await TaskService.getByDate(dateStr);
+    const otherTasks = allTasks.filter(t => t.id !== taskId);
+    if (otherTasks.length === 0) return null;
+
+    const otherTaskIds = otherTasks.map(t => t.id as number);
+    const otherLogs = await ExecutionLogService.getByTaskIds(otherTaskIds);
+
+    const checkStartMs = start.getTime();
+    const checkEndMs = end.getTime();
+
+    for (const log of otherLogs) {
+      const logStartMs = new Date(log.startTime).getTime();
+      const logEndMs = log.endTime ? new Date(log.endTime).getTime() : new Date().getTime(); // 如果是正在运行，当做目前为止
+
+      // 重叠条件：新的开始时间早于旧的结束时间，且新的结束时间晚于旧的开始时间
+      if (checkStartMs < logEndMs && checkEndMs > logStartMs) {
+         // 发生冲突，返回冲突的任务
+         return otherTasks.find(t => t.id === log.taskId) || null;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * 追溯编辑任务的开始与结束时间（直接覆盖）
+   */
+  static async updateRetroactiveTime(taskId: number, start: Date, end: Date): Promise<void> {
+    const task = await TaskService.getById(taskId);
+    if (!task) throw new Error(`任务不存在: id=${taskId}`);
+
+    const dateStr = start.toISOString().slice(0, 10);
+    const conflictTask = await this.checkTimeConflict(taskId, start, end, dateStr);
+    if (conflictTask) {
+      throw new Error(`该时间段你正在执行 [${conflictTask.title}]，请先调整该任务。`);
+    }
+
+    // 删除当前任务所有的执行记录
+    const existingLogs = await ExecutionLogService.getByTaskId(taskId);
+    for (const log of existingLogs) {
+       if (log.id) await db.execution_logs.delete(log.id);
+    }
+
+    // 重新创建一个覆盖全局的记录
+    const newLog: ExecutionLog = {
+       taskId,
+       startTime: start.toISOString(),
+       endTime: end.toISOString(),
+    };
+    await db.execution_logs.add(newLog);
+
+    const actTime = (end.getTime() - start.getTime()) / (1000 * 60);
+    await TaskService.update(taskId, {
+       act_time: actTime,
+       is_adjusted: true,
+       adjustment_reason: '手动追溯修正'
+    });
+  }
+
+  /**
+   * 创建补录任务
+   */
+  static async createRetroactiveTask(title: string, start: Date, end: Date): Promise<number> {
+    const dateStr = start.toISOString().slice(0, 10);
+    const conflictTask = await this.checkTimeConflict(undefined, start, end, dateStr);
+    if (conflictTask) {
+      throw new Error(`该时间段你正在执行 [${conflictTask.title}]，请先调整该任务。`);
+    }
+
+    const duration = Math.round((end.getTime() - start.getTime()) / (1000 * 60));
+
+    // 先创建一个已完成任务
+    const taskId = await TaskService.create({
+      title,
+      date: dateStr,
+      status: TaskStatus.COMPLETED,
+      est_time: duration,
+      act_time: duration,
+      tags: [],
+      is_school_done: false,
+      is_adjusted: true,
+      adjustment_reason: '时间轴补录'
+    });
+
+    const newLog: ExecutionLog = {
+       taskId,
+       startTime: start.toISOString(),
+       endTime: end.toISOString(),
+    };
+    await db.execution_logs.add(newLog);
+    
+    // 更新锚点
+    await DailyAnchorService.setStartAnchor(dateStr);
+    await DailyAnchorService.setEndAnchor(dateStr);
+
+    return taskId;
+  }
+
+  /**
+   * 幽灵计时器检测
+   * 主动挂起超过 4 小时未停止的任务
+   */
+  static async suspendGhostTimers(): Promise<Task[]> {
+    const runningTasks = await TaskService.getByStatus(TaskStatus.RUNNING);
+    const ghostTasks: Task[] = [];
+    const now = new Date().getTime();
+
+    for (const task of runningTasks) {
+      if (!task.id) continue;
+      const logs = await ExecutionLogService.getByTaskId(task.id);
+      const activeLog = logs.find(log => !log.endTime);
+
+      if (activeLog) {
+         const startMs = new Date(activeLog.startTime).getTime();
+         const hoursDiff = (now - startMs) / (1000 * 60 * 60);
+
+         if (hoursDiff > 4) {
+            // 挂起它
+            await ExecutionLogService.endLog(activeLog.id!);
+            const totalTime = await ExecutionLogService.calculateTotalTime(task.id);
+            await TaskService.update(task.id, { 
+               act_time: totalTime,
+               is_adjusted: true, // 标记为被系统打断调整
+               adjustment_reason: '运行超过4小时自动挂起' 
+            });
+            await TaskService.updateStatus(task.id, TaskStatus.PAUSED);
+            ghostTasks.push(task);
+         }
+      }
+    }
+    return ghostTasks;
   }
 }

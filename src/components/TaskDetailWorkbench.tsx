@@ -9,7 +9,8 @@ import { LiveTimer } from '@/components/LiveTimer';
 import { MarkdownViewer } from '@/components/MarkdownViewer';
 import { VideoEmbed } from '@/components/VideoEmbed';
 import { TaskEditorSheet } from '@/components/TaskEditorSheet';
-import { PenLine, PlayCircle, PauseCircle, CheckCircle2, Flame, Maximize2, Target } from 'lucide-react';
+import { RetroactiveTimeEditorDialog } from '@/components/RetroactiveTimeEditorDialog';
+import { PenLine, PlayCircle, PauseCircle, CheckCircle2, Flame, Maximize2, Target, Clock } from 'lucide-react';
 import { formatDuration } from '@/lib/forecast-utils';
 import { GoalService } from '@/services/goal-service';
 import type { Goal } from '@/lib/types';
@@ -26,6 +27,7 @@ interface TaskDetailWorkbenchProps {
 
 export function TaskDetailWorkbench({ task, open, onOpenChange, onDataChanged, onRequestReopen, onRequestComplete }: TaskDetailWorkbenchProps) {
   const [editorOpen, setEditorOpen] = useState(false);
+  const [retroEditorOpen, setRetroEditorOpen] = useState(false);
   const [comments, setComments] = useState('');
   const [goal, setGoal] = useState<Goal | null>(null);
   
@@ -234,10 +236,16 @@ export function TaskDetailWorkbench({ task, open, onOpenChange, onDataChanged, o
                          <Maximize2 className="w-4 h-4 text-slate-400" />
                          指南与素材
                        </h3>
-                       <Button variant="ghost" size="sm" className="text-blue-600 hover:bg-blue-100 rounded-xl font-bold h-9 px-4 transition-colors" onClick={() => setEditorOpen(true)}>
-                         <PenLine className="w-4 h-4 mr-1.5" />
-                         全状态编辑
-                       </Button>
+                       <div className="flex gap-2">
+                         <Button variant="ghost" size="sm" className="text-orange-600 hover:bg-orange-100 rounded-xl font-bold h-9 px-4 transition-colors" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setRetroEditorOpen(true); }}>
+                           <Clock className="w-4 h-4 mr-1.5" />
+                           修正时间
+                         </Button>
+                         <Button variant="ghost" size="sm" className="text-blue-600 hover:bg-blue-100 rounded-xl font-bold h-9 px-4 transition-colors" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditorOpen(true); }}>
+                           <PenLine className="w-4 h-4 mr-1.5" />
+                           全状态编辑
+                         </Button>
+                       </div>
                     </div>
                     {task.description ? (
                       <MarkdownViewer content={task.description} />
@@ -289,6 +297,13 @@ export function TaskDetailWorkbench({ task, open, onOpenChange, onDataChanged, o
         open={editorOpen} 
         onOpenChange={setEditorOpen} 
         onSaved={onDataChanged} 
+      />
+
+      <RetroactiveTimeEditorDialog
+        task={task}
+        open={retroEditorOpen}
+        onOpenChange={setRetroEditorOpen}
+        onSaved={onDataChanged}
       />
     </>
   );

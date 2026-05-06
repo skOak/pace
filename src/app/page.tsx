@@ -24,6 +24,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { CheckCircle2, PlayCircle, Clock, PauseCircle, Target, Flame, Trash2 } from 'lucide-react';
 import { WeeklyStrip } from '@/components/WeeklyStrip';
 
+import { GhostTimerDialog } from '@/components/GhostTimerDialog';
+import { type ExecutionLog } from '@/lib/types';
+
 export default function TodayPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +45,8 @@ export default function TodayPage() {
   
   const [feedbackTask, setFeedbackTask] = useState<Task | null>(null);
   const [reopenTask, setReopenTask] = useState<Task | null>(null);
+  const [logs, setLogs] = useState<ExecutionLog[]>([]);
+  const [ghostTask, setGhostTask] = useState<Task | null>(null);
 
   // 屏幕级移动端 Debug 日志
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
@@ -92,32 +97,42 @@ export default function TodayPage() {
           await TaskExecutionService.expireTodayUnfinishedTasks();
         }
 
+        const ghosts = await TaskExecutionService.suspendGhostTimers();
+        const detectedGhost = ghosts.length > 0 ? ghosts[0] : null;
+
         // 2. 获取今天的任务
         const today = new Date().toISOString().slice(0, 10);
         const allTasks = await TaskService.getByDate(today);
         
         // 3. 获取锚点
         const anchor = await DailyAnchorService.get(today);
+
+        // Fetch logs
+        const taskIds = allTasks.map(t => t.id as number);
+        const fetchedLogs = await ExecutionLogService.getByTaskIds(taskIds);
         
         // 4. 获取运行状态时间加成
         const runningTask = allTasks.find(t => t.status === TaskStatus.RUNNING);
         let activeStartTime: number | null = null;
         if (runningTask && runningTask.id) {
-          const logs = await ExecutionLogService.getByTaskId(runningTask.id);
-          const activeLog = logs.find(l => !l.endTime);
+          const activeLog = fetchedLogs.find(l => l.taskId === runningTask.id && !l.endTime);
           if (activeLog) {
             activeStartTime = new Date(activeLog.startTime).getTime();
           }
         }
         
-        return { allTasks, anchor, activeStartTime };
+        return { allTasks, anchor, activeStartTime, fetchedLogs, detectedGhost };
       };
 
       addLog("starting Promise.race for fetchData");
-      const { allTasks, anchor, activeStartTime } = await Promise.race([fetchData(), timeoutPromise]) as any;
+      const { allTasks, anchor, activeStartTime, fetchedLogs, detectedGhost } = await Promise.race([fetchData(), timeoutPromise]) as any;
       addLog("Promise.race completed!");
 
       setTasks(allTasks);
+      setLogs(fetchedLogs || []);
+      if (detectedGhost && !ghostTask) {
+        setGhostTask(detectedGhost);
+      }
       setStartAnchor(anchor?.start_anchor ? formatTime(new Date(anchor.start_anchor)) : null);
       setStartAnchorDate(anchor?.start_anchor ? new Date(anchor.start_anchor) : null);
       setEndAnchor(anchor?.end_anchor ? formatTime(new Date(anchor.end_anchor)) : null);
@@ -342,6 +357,7 @@ export default function TodayPage() {
         </div>
       </div>
 
+
       {/* 正在运行的任务 */}
       {runningTasks.length > 0 && (
         <div className="space-y-3">
@@ -445,29 +461,29 @@ export default function TodayPage() {
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="h-7 text-red-500 hover:text-red-700 hover:bg-red-50 px-2"
+                          className="min-h-[44px] text-red-500 hover:text-red-700 hover:bg-red-50 px-4"
                           onClick={(e) => { e.stopPropagation(); setTaskToDelete(task); }}
                         >
-                          <Trash2 className="w-4 h-4 mr-1" />
+                          <Trash2 className="w-4 h-4 mr-1.5" />
                           删除
                         </Button>
                       )}
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="h-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2"
+                        className="min-h-[44px] text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-4"
                         onClick={(e) => { e.stopPropagation(); handleStartTask(task); }}
                       >
-                        <PlayCircle className="w-4 h-4 mr-1" />
+                        <PlayCircle className="w-4 h-4 mr-1.5" />
                         {task.status === TaskStatus.PAUSED ? '继续' : '开始'}
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="h-7 text-green-600 hover:text-green-700 hover:bg-green-50 px-2"
+                        className="min-h-[44px] text-green-600 hover:text-green-700 hover:bg-green-50 px-4"
                         onClick={(e) => { e.stopPropagation(); handleCompleteTask(task); }}
                       >
-                        <CheckCircle2 className="w-4 h-4 mr-1" />
+                        <CheckCircle2 className="w-4 h-4 mr-1.5" />
                         完成
                       </Button>
                     </div>
@@ -625,6 +641,15 @@ export default function TodayPage() {
         open={!!reopenTask}
         onOpenChange={(open) => !open && setReopenTask(null)}
         onConfirm={handleConfirmReopen}
+      />
+      <GhostTimerDialog
+        task={ghostTask}
+        open={!!ghostTask}
+        onOpenChange={(open) => !open && setGhostTask(null)}
+        onSaved={() => {
+           setGhostTask(null);
+           loadTasks();
+        }}
       />
     </>
   );
